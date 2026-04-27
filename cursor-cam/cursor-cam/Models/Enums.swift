@@ -31,8 +31,8 @@ enum CameraShape: String, CaseIterable {
         let base = size.baseSize
         return switch self {
         case .circle, .roundedSquare: (base, base)
-        case .horizontal:             (base * 1.5, base * 0.65)
-        case .vertical:               (base * 0.65, base)
+        case .horizontal:             (base * 1.5, base * 0.80)
+        case .vertical:               (base * 0.80, base * 1.15)
         }
     }
 
