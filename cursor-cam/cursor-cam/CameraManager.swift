@@ -74,15 +74,6 @@ final class CameraManager: ObservableObject {
             configureAndStartSession()
         case .notDetermined:
             cameraState = .notDetermined
-            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-                Task { @MainActor in
-                    if granted {
-                        self?.configureAndStartSession()
-                    } else {
-                        self?.cameraState = .denied
-                    }
-                }
-            }
         case .denied:
             cameraState = .denied
         case .restricted:
@@ -153,7 +144,7 @@ final class CameraManager: ObservableObject {
 
     private func switchToDevice(_ device: AVCaptureDevice) {
         guard let session else { return }
-        addInput(device: device, to: session)
+        _ = addInput(device: device, to: session)
     }
 
     func refreshAvailableCameras() {

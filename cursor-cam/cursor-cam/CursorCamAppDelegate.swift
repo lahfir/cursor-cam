@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
@@ -9,6 +10,7 @@ final class CursorCamAppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyMonitor: HotkeyMonitor?
     private var menuBarManager: MenuBarManager?
     private var permissionsManager: PermissionsManager?
+    private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let settings = SettingsStore()
@@ -31,11 +33,13 @@ final class CursorCamAppDelegate: NSObject, NSApplicationDelegate {
 
         menuBar.setPermissionsManager(permissions)
 
-        hotkey.setToggleHandler { [weak overlay, weak camera] in
-            guard let overlay, let camera else { return }
+        hotkey.setToggleHandler { [weak overlay, weak camera, weak settings] in
+            guard let overlay, let camera, let settings else { return }
             if overlay.isShowing {
                 overlay.hide()
+                settings.isCamOn = false
             } else {
+                settings.isCamOn = true
                 camera.startSession()
                 overlay.show()
             }
@@ -45,14 +49,35 @@ final class CursorCamAppDelegate: NSObject, NSApplicationDelegate {
         permissions.requestOnFirstLaunch()
         hotkey.start()
 
+        observePermissions(permissions, camera: camera, overlay: overlay, settings: settings)
         observeSystemNotifications()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        cancellables.removeAll()
         hotkeyMonitor?.stop()
         cameraManager?.stopSession()
         overlayWindowManager?.hide()
         settingsStore = nil
+    }
+
+    private func observePermissions(
+        _ permissions: PermissionsManager,
+        camera: CameraManager,
+        overlay: OverlayWindowManager,
+        settings: SettingsStore
+    ) {
+        permissions.$cameraPermissionGranted
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak camera, weak overlay, weak settings] granted in
+                guard let camera, let overlay, let settings else { return }
+                if granted, settings.isCamOn, !overlay.isShowing {
+                    camera.startSession()
+                    overlay.show()
+                }
+            }
+            .store(in: &cancellables)
     }
 
     private func observeSystemNotifications() {

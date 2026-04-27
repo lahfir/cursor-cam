@@ -11,13 +11,15 @@ final class PermissionsManager: ObservableObject {
     private var hasRequestedCameraSystemPrompt = false
     private var hasRequestedAccessibilitySystemPrompt = false
     private var permissionPollTimer: Timer?
-    private var hasCompletedOnboarding = false
 
-    private let defaultsKey = "com.cursorcam.hasCompletedOnboarding"
+    private static let onboardingCompleteKey = "com.cursorcam.hasCompletedOnboarding"
 
-    var needsOnboarding: Bool {
-        !UserDefaults.standard.bool(forKey: defaultsKey)
+    private var hasCompletedOnboarding: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.onboardingCompleteKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.onboardingCompleteKey) }
     }
+
+    var needsOnboarding: Bool { !hasCompletedOnboarding }
 
     deinit {
         permissionPollTimer?.invalidate()
@@ -27,16 +29,23 @@ final class PermissionsManager: ObservableObject {
         AXIsProcessTrusted()
     }
 
+    static func cameraPermissionGranted() -> Bool {
+        AVCaptureDevice.authorizationStatus(for: .video) == .authorized
+    }
+
     func refreshPermissions() {
-        cameraPermissionGranted = AVCaptureDevice.authorizationStatus(for: .video) == .authorized
+        cameraPermissionGranted = Self.cameraPermissionGranted()
         accessibilityPermissionGranted = Self.hasAccessibilityPermission()
     }
 
     func requestOnFirstLaunch() {
-        guard needsOnboarding else {
-            refreshPermissions()
+        refreshPermissions()
+
+        if cameraPermissionGranted && accessibilityPermissionGranted {
+            hasCompletedOnboarding = true
             return
         }
+
         requestPermissions()
     }
 
@@ -44,19 +53,19 @@ final class PermissionsManager: ObservableObject {
         refreshPermissions()
 
         if !cameraPermissionGranted {
-            requestCameraPermission()
+            presentCameraPermissionRequest()
         }
 
         if !accessibilityPermissionGranted {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-                self?.requestAccessibilityPermission()
+                self?.presentAccessibilityPermissionRequest()
             }
         }
 
         startPolling()
     }
 
-    private func requestCameraPermission() {
+    private func presentCameraPermissionRequest() {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
 
         switch status {
@@ -66,7 +75,7 @@ final class PermissionsManager: ObservableObject {
             if !hasRequestedCameraSystemPrompt {
                 hasRequestedCameraSystemPrompt = true
                 AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-                    Task { @MainActor in
+                    DispatchQueue.main.async {
                         self?.cameraPermissionGranted = granted
                     }
                 }
@@ -82,7 +91,7 @@ final class PermissionsManager: ObservableObject {
         }
     }
 
-    private func requestAccessibilityPermission() {
+    private func presentAccessibilityPermissionRequest() {
         if Self.hasAccessibilityPermission() {
             accessibilityPermissionGranted = true
             return
@@ -100,22 +109,22 @@ final class PermissionsManager: ObservableObject {
     private func startPolling() {
         permissionPollTimer?.invalidate()
         permissionPollTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+            DispatchQueue.main.async {
                 self?.pollPermissions()
             }
         }
     }
 
     private func pollPermissions() {
-        let cameraNow = AVCaptureDevice.authorizationStatus(for: .video) == .authorized
+        let cameraNow = Self.cameraPermissionGranted()
         let accessibilityNow = Self.hasAccessibilityPermission()
 
+        let wasMissing = !cameraPermissionGranted || !accessibilityPermissionGranted
         cameraPermissionGranted = cameraNow
         accessibilityPermissionGranted = accessibilityNow
 
-        if cameraNow && accessibilityNow && !hasCompletedOnboarding {
+        if cameraNow && accessibilityNow && wasMissing {
             hasCompletedOnboarding = true
-            UserDefaults.standard.set(true, forKey: defaultsKey)
             registerAsLoginItem()
             permissionPollTimer?.invalidate()
             permissionPollTimer = nil

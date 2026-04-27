@@ -222,6 +222,7 @@ final class MenuBarManager {
     @objc private func toggleCamAction() {
         if overlayManager.isShowing {
             overlayManager.hide()
+            settings.isCamOn = false
         } else {
             cameraManager.startSession()
             overlayManager.show()
