@@ -111,10 +111,15 @@ private struct CameraPreviewLayerView: NSViewRepresentable {
 }
 
 private final class CameraPreviewNSView: NSView {
+    private var isLayingOut = false
+
     var previewLayer: AVCaptureVideoPreviewLayer? {
         didSet {
+            guard previewLayer !== oldValue else { return }
             oldValue?.removeFromSuperlayer()
             guard let previewLayer else { return }
+            wantsLayer = true
+            previewLayer.frame = bounds
             layer?.addSublayer(previewLayer)
         }
     }
@@ -131,7 +136,13 @@ private final class CameraPreviewNSView: NSView {
 
     override func layout() {
         super.layout()
-        previewLayer?.frame = bounds
+        guard !isLayingOut, let previewLayer else { return }
+        isLayingOut = true
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        previewLayer.frame = bounds
+        CATransaction.commit()
+        isLayingOut = false
     }
 }
 
