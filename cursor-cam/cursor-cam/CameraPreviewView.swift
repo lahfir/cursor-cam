@@ -5,7 +5,6 @@ struct CameraPreviewView: View {
     @ObservedObject var cameraManager: CameraManager
     @ObservedObject var settings: SettingsStore
     @ObservedObject var overlayManager: OverlayWindowManager
-    @ObservedObject var audioMonitor: AudioLevelMonitor
     let screen: NSScreen
 
     @State private var dragOffset: CGSize = .zero
@@ -75,20 +74,6 @@ struct CameraPreviewView: View {
             .frame(width: camWidth, height: camHeight)
 
             camBorder
-            glowOverlay
-        }
-    }
-
-    @ViewBuilder
-    private var glowOverlay: some View {
-        if settings.isGlowEnabled {
-            camClipShape()
-                .stroke(
-                    Color.white.opacity(0.3 + Double(audioMonitor.normalizedLevel) * 0.7),
-                    style: StrokeStyle(lineWidth: settings.borderWidth + 4)
-                )
-                .blur(radius: 6 + audioMonitor.normalizedLevel * 8)
-                .animation(.easeOut(duration: 0.08), value: audioMonitor.normalizedLevel)
         }
     }
 

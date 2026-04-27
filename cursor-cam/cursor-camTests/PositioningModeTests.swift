@@ -5,7 +5,6 @@ import XCTest
 final class PositioningModeTests: XCTestCase {
     private var settings: SettingsStore!
     private var cameraManager: CameraManager!
-    private var audioMonitor: AudioLevelMonitor!
     private var overlayManager: OverlayWindowManager!
 
     override func setUp() {
@@ -15,8 +14,7 @@ final class PositioningModeTests: XCTestCase {
         }
         settings = SettingsStore()
         cameraManager = CameraManager(settings: settings)
-        audioMonitor = AudioLevelMonitor()
-        overlayManager = OverlayWindowManager(settings: settings, cameraManager: cameraManager, audioMonitor: audioMonitor)
+        overlayManager = OverlayWindowManager(settings: settings, cameraManager: cameraManager)
     }
 
     func testDefaultModeIsFollowCursor() {

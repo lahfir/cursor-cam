@@ -18,7 +18,6 @@ final class OverlayWindowManager: ObservableObject {
 
     private let settings: SettingsStore
     private let cameraManager: CameraManager
-    private let audioMonitor: AudioLevelMonitor
 
     private static let camGap: CGFloat = 8
     private static let cornerMargin: CGFloat = 20
@@ -29,10 +28,9 @@ final class OverlayWindowManager: ObservableObject {
 
     @Published private(set) var screenStates: [ObjectIdentifier: ScreenCamState] = [:]
 
-    init(settings: SettingsStore, cameraManager: CameraManager, audioMonitor: AudioLevelMonitor) {
+    init(settings: SettingsStore, cameraManager: CameraManager) {
         self.settings = settings
         self.cameraManager = cameraManager
-        self.audioMonitor = audioMonitor
         observeScreenChanges()
     }
 
@@ -66,7 +64,6 @@ final class OverlayWindowManager: ObservableObject {
                 cameraManager: cameraManager,
                 settings: settings,
                 overlayManager: self,
-                audioMonitor: audioMonitor,
                 screen: screen
             )
 

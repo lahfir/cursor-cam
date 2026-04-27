@@ -56,9 +56,9 @@ extension CameraShape {
         case .circle, .roundedSquare:
             (base, base)
         case .verticalPill:
-            (base * 0.75, base * 1.33)
+            (base * 0.65, base)
         case .horizontalPill:
-            (base * 1.33, base * 0.75)
+            (base, base * 0.65)
         }
     }
 
@@ -107,9 +107,6 @@ final class SettingsStore: ObservableObject {
     @Published var borderWidth: CGFloat {
         didSet { write(key: .borderWidth, value: borderWidth) }
     }
-    @Published var isGlowEnabled: Bool {
-        didSet { write(key: .isGlowEnabled, value: isGlowEnabled) }
-    }
     @Published var freeDragPosition: CGPoint? {
         didSet {
             defaults.set(freeDragPosition?.x, forKey: Keys.freeDragPositionX.rawValue)
@@ -129,7 +126,6 @@ final class SettingsStore: ObservableObject {
         self.isMirrored = defaults.object(forKey: Keys.isMirrored.rawValue) as? Bool ?? true
         self.borderStyle = Self.readEnum(key: .borderStyle, defaultValue: .none)
         self.borderWidth = defaults.object(forKey: Keys.borderWidth.rawValue) as? CGFloat ?? 2
-        self.isGlowEnabled = defaults.object(forKey: Keys.isGlowEnabled.rawValue) as? Bool ?? false
         self.selectedCameraUniqueID = defaults.string(forKey: Keys.cameraUniqueID.rawValue)
 
         if let x = defaults.object(forKey: Keys.freeDragPositionX.rawValue) as? CGFloat,
@@ -170,7 +166,6 @@ private enum Keys: String {
     case isMirrored
     case borderStyle
     case borderWidth
-    case isGlowEnabled
     case freeDragPositionX
     case freeDragPositionY
 }

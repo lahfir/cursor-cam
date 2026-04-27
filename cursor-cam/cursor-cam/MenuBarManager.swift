@@ -215,16 +215,6 @@ final class MenuBarManager {
         mirrorItem.state = settings.isMirrored ? .on : .off
         menu.addItem(mirrorItem)
 
-        // Glow toggle
-        let glowItem = NSMenuItem(
-            title: "Audio Glow",
-            action: #selector(toggleGlowAction),
-            keyEquivalent: ""
-        )
-        glowItem.target = self
-        glowItem.state = settings.isGlowEnabled ? .on : .off
-        menu.addItem(glowItem)
-
         // Cursor Position submenu
         let cursorPosMenu = NSMenu()
         let cursorPositions: [(CursorPosition, String)] = [
@@ -379,43 +369,6 @@ final class MenuBarManager {
         settings.cameraSize = size
         overlayManager.updateCamVisuals()
         buildMenu()
-    }
-
-    @objc private func toggleGlowAction() {
-        if !settings.isGlowEnabled {
-            requestMicrophonePermission { [weak self] granted in
-                guard let self else { return }
-                if granted {
-                    self.settings.isGlowEnabled = true
-                }
-                self.buildMenu()
-            }
-        } else {
-            settings.isGlowEnabled = false
-            buildMenu()
-        }
-    }
-
-    private func requestMicrophonePermission(completion: @escaping (Bool) -> Void) {
-        let status = AVCaptureDevice.authorizationStatus(for: .audio)
-        switch status {
-        case .authorized:
-            completion(true)
-        case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .audio) { granted in
-                DispatchQueue.main.async { completion(granted) }
-            }
-        case .denied, .restricted:
-            openMicrophoneSettings()
-            completion(false)
-        @unknown default:
-            completion(false)
-        }
-    }
-
-    private func openMicrophoneSettings() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") else { return }
-        NSWorkspace.shared.open(url)
     }
 
     @objc private func toggleMirrorAction() {
