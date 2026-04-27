@@ -49,7 +49,7 @@ struct BehaviorSection: View {
             StudioStack(title: "Dimmed") {
                 CamSlider(
                     value: $settings.idleDimmedOpacity,
-                    range: 0.15...0.8,
+                    range: 0...0.8,
                     format: { "\(Int($0 * 100))%" }
                 )
             }

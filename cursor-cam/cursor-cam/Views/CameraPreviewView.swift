@@ -18,7 +18,7 @@ struct CameraPreviewView: View {
     private var cornerRadius: CGFloat { settings.cameraShape.cornerRadius(for: settings.cameraSize) }
 
     var finalOpacity: Double {
-        max(0.15, Double(state.alpha) * settings.baseOpacity * Double(overlayManager.idleDimMultiplier))
+        Double(state.alpha) * settings.baseOpacity * Double(overlayManager.idleDimMultiplier)
     }
 
     var body: some View {
