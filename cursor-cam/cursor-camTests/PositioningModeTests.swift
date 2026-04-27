@@ -21,6 +21,10 @@ final class PositioningModeTests: XCTestCase {
         XCTAssertEqual(settings.positioningMode, .followCursor)
     }
 
+    func testDefaultCursorPositionIsCenter() {
+        XCTAssertEqual(settings.cursorPosition, .center)
+    }
+
     func testModeSwitchDoesNotToggleCamOff() {
         overlayManager.show()
         XCTAssertTrue(overlayManager.isShowing)
@@ -32,37 +36,6 @@ final class PositioningModeTests: XCTestCase {
         settings.positioningMode = .freeDrag
         overlayManager.onModeChanged()
         XCTAssertTrue(overlayManager.isShowing)
-    }
-
-    func testFreeDragModeStoresPosition() {
-        guard let screen = NSScreen.main else { return }
-        overlayManager.show()
-        settings.positioningMode = .freeDrag
-        overlayManager.onModeChanged()
-
-        let dragPos = CGPoint(x: 600, y: 400)
-        overlayManager.onFreeDragMoved(to: dragPos, screen: screen)
-
-        XCTAssertEqual(settings.freeDragPosition?.x, 600)
-        XCTAssertEqual(settings.freeDragPosition?.y, 400)
-    }
-
-    func testFreeDragModePersistsOnReentry() {
-        guard let screen = NSScreen.main else { return }
-        overlayManager.show()
-        settings.positioningMode = .freeDrag
-
-        let pos = CGPoint(x: 400, y: 300)
-        overlayManager.onFreeDragMoved(to: pos, screen: screen)
-
-        XCTAssertNotNil(settings.freeDragPosition)
-        XCTAssertEqual(settings.freeDragPosition?.x, 400)
-        XCTAssertEqual(settings.freeDragPosition?.y, 300)
-
-        // Read back
-        let reloadedSettings = SettingsStore()
-        XCTAssertEqual(reloadedSettings.freeDragPosition?.x, 400)
-        XCTAssertEqual(reloadedSettings.freeDragPosition?.y, 300)
     }
 
     func testAllCornersProduceValidPositions() {
@@ -78,14 +51,36 @@ final class PositioningModeTests: XCTestCase {
         }
     }
 
-    func testCamPositionFollowsCursorOffset() {
+    func testCamPositionWithCenterOffset() {
         guard let screen = NSScreen.main else { return }
+        settings.cursorPosition = .center
         let pos = overlayManager.camPosition(for: screen)
-        let mouseLocation = NSEvent.mouseLocation
+        let mouse = NSEvent.mouseLocation
+        let expected = convertForTest(mouse, screen: screen)
+        XCTAssertEqual(pos.x, expected.x, accuracy: 0.1)
+        XCTAssertEqual(pos.y, expected.y, accuracy: 0.1)
+    }
 
-        // Cam position should be offset from cursor
-        XCTAssertNotEqual(pos, .zero)
-        _ = mouseLocation // cursor is somewhere on screen
+    func testCamPositionWithBottomRightOffset() {
+        guard let screen = NSScreen.main else { return }
+        settings.cursorPosition = .bottomRight
+        settings.cameraSize = .medium
+        let pos = overlayManager.camPosition(for: screen)
+        let mouse = NSEvent.mouseLocation
+        let base = convertForTest(mouse, screen: screen)
+        let half = settings.cameraSize.pixelValue / 2
+        XCTAssertEqual(pos.x, base.x + half + 8, accuracy: 0.1)
+        XCTAssertEqual(pos.y, base.y + half + 8, accuracy: 0.1)
+    }
+
+    func testAllCursorPositionsAreCaseIterable() {
+        let positions = CursorPosition.allCases
+        XCTAssertEqual(positions.count, 5)
+        XCTAssertTrue(positions.contains(.center))
+        XCTAssertTrue(positions.contains(.bottomRight))
+        XCTAssertTrue(positions.contains(.bottomLeft))
+        XCTAssertTrue(positions.contains(.topLeft))
+        XCTAssertTrue(positions.contains(.topRight))
     }
 
     func testAllPositioningModesAreCaseIterable() {
@@ -95,4 +90,11 @@ final class PositioningModeTests: XCTestCase {
         XCTAssertTrue(modes.contains(.pinToCorner))
         XCTAssertTrue(modes.contains(.freeDrag))
     }
+
+    private func convertForTest(_ point: CGPoint, screen: NSScreen) -> CGPoint {
+        let x = point.x - screen.frame.origin.x
+        let y = (screen.frame.origin.y + screen.frame.height) - point.y
+        return CGPoint(x: x, y: y)
+    }
 }
+

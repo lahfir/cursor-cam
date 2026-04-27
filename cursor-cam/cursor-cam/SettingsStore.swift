@@ -14,9 +14,23 @@ enum Corner: String, CaseIterable {
     case bottomRight
 }
 
+enum CursorPosition: String, CaseIterable {
+    case center
+    case bottomRight
+    case bottomLeft
+    case topLeft
+    case topRight
+}
+
 enum CameraShape: String, CaseIterable {
     case circle
     case roundedSquare
+}
+
+enum BorderStyle: String, CaseIterable {
+    case none
+    case solid
+    case dashed
 }
 
 enum CameraSize: String, CaseIterable {
@@ -55,6 +69,10 @@ final class SettingsStore: ObservableObject {
         didSet { write(key: .pinnedCorner, value: pinnedCorner.rawValue) }
     }
 
+    @Published var cursorPosition: CursorPosition {
+        didSet { write(key: .cursorPosition, value: cursorPosition.rawValue) }
+    }
+
     @Published var cameraShape: CameraShape {
         didSet { write(key: .cameraShape, value: cameraShape.rawValue) }
     }
@@ -65,6 +83,14 @@ final class SettingsStore: ObservableObject {
 
     @Published var isMirrored: Bool {
         didSet { write(key: .isMirrored, value: isMirrored) }
+    }
+
+    @Published var borderStyle: BorderStyle {
+        didSet { write(key: .borderStyle, value: borderStyle.rawValue) }
+    }
+
+    @Published var borderWidth: CGFloat {
+        didSet { write(key: .borderWidth, value: borderWidth) }
     }
 
     @Published var freeDragPosition: CGPoint? {
@@ -81,9 +107,12 @@ final class SettingsStore: ObservableObject {
     init() {
         self.positioningMode = Self.readEnum(key: .positioningMode, defaultValue: .followCursor)
         self.pinnedCorner = Self.readEnum(key: .pinnedCorner, defaultValue: .bottomRight)
+        self.cursorPosition = Self.readEnum(key: .cursorPosition, defaultValue: .center)
         self.cameraShape = Self.readEnum(key: .cameraShape, defaultValue: .circle)
         self.cameraSize = Self.readEnum(key: .cameraSize, defaultValue: .medium)
         self.isMirrored = defaults.object(forKey: Keys.isMirrored.rawValue) as? Bool ?? true
+        self.borderStyle = Self.readEnum(key: .borderStyle, defaultValue: .none)
+        self.borderWidth = defaults.object(forKey: Keys.borderWidth.rawValue) as? CGFloat ?? 2
         self.selectedCameraUniqueID = defaults.string(forKey: Keys.cameraUniqueID.rawValue)
 
         if let x = defaults.object(forKey: Keys.freeDragPositionX.rawValue) as? CGFloat,
@@ -118,9 +147,12 @@ private enum Keys: String {
     case cameraUniqueID
     case positioningMode
     case pinnedCorner
+    case cursorPosition
     case cameraShape
     case cameraSize
     case isMirrored
+    case borderStyle
+    case borderWidth
     case freeDragPositionX
     case freeDragPositionY
 }

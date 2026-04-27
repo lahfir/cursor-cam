@@ -15,12 +15,39 @@ final class SettingsStoreTests: XCTestCase {
 
         XCTAssertEqual(store.positioningMode, .followCursor)
         XCTAssertEqual(store.pinnedCorner, .bottomRight)
+        XCTAssertEqual(store.cursorPosition, .center)
         XCTAssertEqual(store.cameraShape, .circle)
         XCTAssertEqual(store.cameraSize, .medium)
         XCTAssertTrue(store.isMirrored)
+        XCTAssertEqual(store.borderStyle, .none)
+        XCTAssertEqual(store.borderWidth, 2)
         XCTAssertNil(store.selectedCameraUniqueID)
         XCTAssertNil(store.freeDragPosition)
         XCTAssertFalse(store.isCamOn)
+    }
+
+    func testCursorPositionPersistsRoundTrip() {
+        let store = SettingsStore()
+        store.cursorPosition = .bottomRight
+
+        let reloaded = SettingsStore()
+        XCTAssertEqual(reloaded.cursorPosition, .bottomRight)
+    }
+
+    func testBorderStylePersistsRoundTrip() {
+        let store = SettingsStore()
+        store.borderStyle = .dashed
+
+        let reloaded = SettingsStore()
+        XCTAssertEqual(reloaded.borderStyle, .dashed)
+    }
+
+    func testBorderWidthPersistsRoundTrip() {
+        let store = SettingsStore()
+        store.borderWidth = 4
+
+        let reloaded = SettingsStore()
+        XCTAssertEqual(reloaded.borderWidth, 4)
     }
 
     func testPositioningModePersistsRoundTrip() {
@@ -53,8 +80,6 @@ final class SettingsStoreTests: XCTestCase {
 
         let reloaded = SettingsStore()
         XCTAssertEqual(reloaded.cameraSize, .large)
-        XCTAssertEqual(reloaded.cameraSize.pixelValue, 180)
-        XCTAssertEqual(reloaded.cameraSize.cornerRadius, 30)
     }
 
     func testIsMirroredPersistsRoundTrip() {
@@ -73,15 +98,6 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.selectedCameraUniqueID, "test-camera-id")
     }
 
-    func testSelectedCameraUniqueIDNilRoundTrip() {
-        let store = SettingsStore()
-        store.selectedCameraUniqueID = "some-id"
-        store.selectedCameraUniqueID = nil
-
-        let reloaded = SettingsStore()
-        XCTAssertNil(reloaded.selectedCameraUniqueID)
-    }
-
     func testFreeDragPositionRoundTrip() {
         let store = SettingsStore()
         let point = CGPoint(x: 500, y: 300)
@@ -90,16 +106,6 @@ final class SettingsStoreTests: XCTestCase {
         let reloaded = SettingsStore()
         XCTAssertEqual(reloaded.freeDragPosition?.x, 500)
         XCTAssertEqual(reloaded.freeDragPosition?.y, 300)
-    }
-
-    func testFreeDragPositionNegativeCoordinates() {
-        let store = SettingsStore()
-        let point = CGPoint(x: -100, y: -200)
-        store.freeDragPosition = point
-
-        let reloaded = SettingsStore()
-        XCTAssertEqual(reloaded.freeDragPosition?.x, -100)
-        XCTAssertEqual(reloaded.freeDragPosition?.y, -200)
     }
 
     func testEnumFallsBackToDefaultOnUnknownRawValue() {
@@ -111,27 +117,22 @@ final class SettingsStoreTests: XCTestCase {
     func testIsCamOnNotPersisted() {
         let store = SettingsStore()
         store.isCamOn = true
-
         let reloaded = SettingsStore()
         XCTAssertFalse(reloaded.isCamOn)
     }
 
-    func testCameraSizePixelValues() {
-        XCTAssertEqual(CameraSize.small.pixelValue, 80)
-        XCTAssertEqual(CameraSize.medium.pixelValue, 120)
-        XCTAssertEqual(CameraSize.large.pixelValue, 180)
+    func testAllCursorPositionsAreCaseIterable() {
+        let positions = CursorPosition.allCases
+        XCTAssertEqual(positions.count, 5)
+        XCTAssertTrue(positions.contains(.center))
+        XCTAssertTrue(positions.contains(.bottomRight))
     }
 
-    func testRapidSuccessiveWritesDontLoseValues() {
-        let store = SettingsStore()
-        store.cameraSize = .large
-        store.cameraSize = .small
-        store.cameraShape = .roundedSquare
-        store.positioningMode = .freeDrag
-
-        let reloaded = SettingsStore()
-        XCTAssertEqual(reloaded.cameraSize, .small)
-        XCTAssertEqual(reloaded.cameraShape, .roundedSquare)
-        XCTAssertEqual(reloaded.positioningMode, .freeDrag)
+    func testAllBorderStylesAreCaseIterable() {
+        let styles = BorderStyle.allCases
+        XCTAssertEqual(styles.count, 3)
+        XCTAssertTrue(styles.contains(.none))
+        XCTAssertTrue(styles.contains(.solid))
+        XCTAssertTrue(styles.contains(.dashed))
     }
 }

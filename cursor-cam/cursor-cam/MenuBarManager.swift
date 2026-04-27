@@ -209,6 +209,69 @@ final class MenuBarManager {
         mirrorItem.state = settings.isMirrored ? .on : .off
         menu.addItem(mirrorItem)
 
+        // Cursor Position submenu
+        let cursorPosMenu = NSMenu()
+        let cursorPositions: [(CursorPosition, String)] = [
+            (.center, "Center"),
+            (.bottomRight, "Bottom Right"),
+            (.bottomLeft, "Bottom Left"),
+            (.topLeft, "Top Left"),
+            (.topRight, "Top Right")
+        ]
+        for (position, title) in cursorPositions {
+            let item = NSMenuItem(
+                title: title,
+                action: #selector(selectCursorPositionAction(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = position.rawValue
+            item.state = settings.cursorPosition == position ? .on : .off
+            cursorPosMenu.addItem(item)
+        }
+        let cursorPosItem = NSMenuItem(title: "Cursor Position", action: nil, keyEquivalent: "")
+        menu.addItem(cursorPosItem)
+        menu.setSubmenu(cursorPosMenu, for: cursorPosItem)
+
+        // Border submenu
+        let borderMenu = NSMenu()
+
+        let borderStyles: [(BorderStyle, String)] = [
+            (.none, "None"),
+            (.solid, "Solid"),
+            (.dashed, "Dashed")
+        ]
+        for (style, name) in borderStyles {
+            let item = NSMenuItem(
+                title: name,
+                action: #selector(selectBorderStyleAction(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = style.rawValue
+            item.state = settings.borderStyle == style ? .on : .off
+            borderMenu.addItem(item)
+        }
+
+        borderMenu.addItem(.separator())
+
+        let widths: [(CGFloat, String)] = [(1, "1px"), (2, "2px"), (3, "3px"), (4, "4px"), (6, "6px")]
+        for (width, label) in widths {
+            let item = NSMenuItem(
+                title: label,
+                action: #selector(selectBorderWidthAction(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = width
+            item.state = settings.borderWidth == width ? .on : .off
+            borderMenu.addItem(item)
+        }
+
+        let borderItem = NSMenuItem(title: "Border", action: nil, keyEquivalent: "")
+        menu.addItem(borderItem)
+        menu.setSubmenu(borderMenu, for: borderItem)
+
         menu.addItem(.separator())
 
         // Permission status
@@ -313,6 +376,26 @@ final class MenuBarManager {
 
     @objc private func quitAction() {
         NSApplication.shared.terminate(nil)
+    }
+
+    @objc private func selectCursorPositionAction(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let position = CursorPosition(rawValue: raw) else { return }
+        settings.cursorPosition = position
+        buildMenu()
+    }
+
+    @objc private func selectBorderStyleAction(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let style = BorderStyle(rawValue: raw) else { return }
+        settings.borderStyle = style
+        buildMenu()
+    }
+
+    @objc private func selectBorderWidthAction(_ sender: NSMenuItem) {
+        guard let width = sender.representedObject as? CGFloat else { return }
+        settings.borderWidth = width
+        buildMenu()
     }
 
     private func modeDisplayName(_ mode: PositioningMode) -> String {

@@ -19,8 +19,7 @@ final class OverlayWindowManager: ObservableObject {
     private let settings: SettingsStore
     private let cameraManager: CameraManager
 
-    private static let offsetX: CGFloat = 15
-    private static let offsetY: CGFloat = 15
+    private static let camGap: CGFloat = 8
     private static let cornerMargin: CGFloat = 20
     private static let screenSwitchDebounce: TimeInterval = 0.15
 
@@ -131,9 +130,23 @@ final class OverlayWindowManager: ObservableObject {
     }
 
     func camPosition(for screen: NSScreen) -> CGPoint {
-        let mouseLocation = NSEvent.mouseLocation
-        let inSwiftUI = convertToSwiftUICoordinates(mouseLocation, screen: screen)
-        return CGPoint(x: inSwiftUI.x + Self.offsetX, y: inSwiftUI.y + Self.offsetY)
+        let mouse = NSEvent.mouseLocation
+        let base = convertToSwiftUICoordinates(mouse, screen: screen)
+        let half = settings.cameraSize.pixelValue / 2
+        let gap = Self.camGap
+
+        return switch settings.cursorPosition {
+        case .center:
+            base
+        case .bottomRight:
+            CGPoint(x: base.x + half + gap, y: base.y + half + gap)
+        case .bottomLeft:
+            CGPoint(x: base.x - half - gap, y: base.y + half + gap)
+        case .topLeft:
+            CGPoint(x: base.x - half - gap, y: base.y - half - gap)
+        case .topRight:
+            CGPoint(x: base.x + half + gap, y: base.y - half - gap)
+        }
     }
 
     func cornerPosition(for corner: Corner, screen: NSScreen) -> CGPoint {

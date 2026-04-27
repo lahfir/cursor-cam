@@ -60,20 +60,41 @@ struct CameraPreviewView: View {
                     CameraPreviewLayerView(previewLayer: previewLayer)
                         .scaleEffect(x: settings.isMirrored ? -1 : 1, y: 1)
                         .clipShape(camClipShape())
+                        .overlay { camBorder }
                 }
             case .starting:
                 camPlaceholder(systemName: "circle.dotted")
                     .symbolEffect(.rotate)
+                    .overlay { camBorder }
             case .disconnected, .error:
                 camPlaceholder(systemName: "camera.badge.ellipsis")
+                    .overlay { camBorder }
             case .unavailable, .restricted, .notDetermined, .denied:
                 camPlaceholder(systemName: "camera.metering.unknown")
+                    .overlay { camBorder }
             }
         }
         .frame(
             width: settings.cameraSize.pixelValue,
             height: settings.cameraSize.pixelValue
         )
+    }
+
+    @ViewBuilder
+    private var camBorder: some View {
+        if settings.borderStyle != .none {
+            camClipShape()
+                .stroke(Color.white.opacity(0.6), style: borderStrokeStyle)
+        }
+    }
+
+    private var borderStrokeStyle: SwiftUI.StrokeStyle {
+        switch settings.borderStyle {
+        case .dashed:
+            return StrokeStyle(lineWidth: settings.borderWidth, dash: [6, 4])
+        case .solid, .none:
+            return StrokeStyle(lineWidth: settings.borderWidth)
+        }
     }
 
     private func camPlaceholder(systemName: String) -> some View {
