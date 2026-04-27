@@ -18,6 +18,7 @@ final class OverlayWindowManager: ObservableObject {
 
     private let settings: SettingsStore
     private let cameraManager: CameraManager
+    private let behaviorController: CamBehaviorController
 
     private static let camGap: CGFloat = 8
     private static let cornerMargin: CGFloat = 20
@@ -27,10 +28,13 @@ final class OverlayWindowManager: ObservableObject {
     private var previousActiveFrame: CGRect?
 
     @Published private(set) var screenStates: [ObjectIdentifier: ScreenCamState] = [:]
+    @Published private(set) var velocityScale: CGFloat = 1.0
+    @Published private(set) var idleDimMultiplier: CGFloat = 1.0
 
     init(settings: SettingsStore, cameraManager: CameraManager) {
         self.settings = settings
         self.cameraManager = cameraManager
+        self.behaviorController = CamBehaviorController(settings: settings)
         observeScreenChanges()
     }
 
@@ -100,6 +104,7 @@ final class OverlayWindowManager: ObservableObject {
         cursorTrackingTimer?.invalidate()
         cursorTrackingTimer = nil
         isVisible = false
+        behaviorController.reset()
 
         let windows = overlayWindows
         overlayWindows.removeAll()
@@ -258,6 +263,9 @@ final class OverlayWindowManager: ObservableObject {
         guard isVisible, showIntent, !Task.isCancelled else { return }
 
         let mouseLocation = NSEvent.mouseLocation
+        behaviorController.tick(mouseLocation: mouseLocation)
+        velocityScale = behaviorController.velocityScale
+        idleDimMultiplier = behaviorController.idleDimMultiplier
 
         switch settings.positioningMode {
         case .followCursor:
@@ -343,4 +351,3 @@ final class OverlayWindowManager: ObservableObject {
         syncOverlaysToScreens()
     }
 }
-

@@ -57,3 +57,33 @@ enum BorderStyle: String, CaseIterable {
     case solid
     case dashed
 }
+
+enum ShadowIntensity: String, CaseIterable {
+    case light
+    case medium
+    case heavy
+
+    var shadowOpacity: Double {
+        switch self {
+        case .light:  return 0.15
+        case .medium: return 0.30
+        case .heavy:  return 0.50
+        }
+    }
+
+    var shadowRadius: CGFloat {
+        switch self {
+        case .light:  return 6
+        case .medium: return 12
+        case .heavy:  return 20
+        }
+    }
+
+    var shadowOffset: CGFloat {
+        switch self {
+        case .light:  return 2
+        case .medium: return 4
+        case .heavy:  return 6
+        }
+    }
+}

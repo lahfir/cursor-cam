@@ -36,6 +36,30 @@ final class SettingsStore: ObservableObject {
             defaults.set(freeDragPosition?.y, forKey: Keys.freeDragPositionY.rawValue)
         }
     }
+    @Published var baseOpacity: Double {
+        didSet { write(.baseOpacity, baseOpacity) }
+    }
+    @Published var shadowEnabled: Bool {
+        didSet { write(.shadowEnabled, shadowEnabled) }
+    }
+    @Published var shadowIntensity: ShadowIntensity {
+        didSet { write(.shadowIntensity, shadowIntensity.rawValue) }
+    }
+    @Published var velocityScalingEnabled: Bool {
+        didSet { write(.velocityScalingEnabled, velocityScalingEnabled) }
+    }
+    @Published var idleDimEnabled: Bool {
+        didSet { write(.idleDimEnabled, idleDimEnabled) }
+    }
+    @Published var idleTimeoutSeconds: Double {
+        didSet { write(.idleTimeoutSeconds, idleTimeoutSeconds) }
+    }
+    @Published var idleDimmedOpacity: Double {
+        didSet { write(.idleDimmedOpacity, idleDimmedOpacity) }
+    }
+    @Published var clickFeedbackEnabled: Bool {
+        didSet { write(.clickFeedbackEnabled, clickFeedbackEnabled) }
+    }
     @Published var isCamOn = false
 
     private let defaults = UserDefaults.standard
@@ -50,6 +74,15 @@ final class SettingsStore: ObservableObject {
         self.borderStyle = Self.read(.borderStyle, default: .none)
         self.borderWidth = defaults.object(forKey: Keys.borderWidth.rawValue) as? CGFloat ?? 2
         self.selectedCameraUniqueID = defaults.string(forKey: Keys.cameraUniqueID.rawValue)
+
+        self.baseOpacity = defaults.object(forKey: Keys.baseOpacity.rawValue) as? Double ?? 1.0
+        self.shadowEnabled = defaults.object(forKey: Keys.shadowEnabled.rawValue) as? Bool ?? true
+        self.shadowIntensity = Self.read(.shadowIntensity, default: .medium)
+        self.velocityScalingEnabled = defaults.object(forKey: Keys.velocityScalingEnabled.rawValue) as? Bool ?? true
+        self.idleDimEnabled = defaults.object(forKey: Keys.idleDimEnabled.rawValue) as? Bool ?? true
+        self.idleTimeoutSeconds = defaults.object(forKey: Keys.idleTimeoutSeconds.rawValue) as? Double ?? 3.0
+        self.idleDimmedOpacity = defaults.object(forKey: Keys.idleDimmedOpacity.rawValue) as? Double ?? 0.3
+        self.clickFeedbackEnabled = defaults.object(forKey: Keys.clickFeedbackEnabled.rawValue) as? Bool ?? true
 
         if let x = defaults.object(forKey: Keys.freeDragPositionX.rawValue) as? CGFloat,
            let y = defaults.object(forKey: Keys.freeDragPositionY.rawValue) as? CGFloat {
@@ -75,4 +108,7 @@ private enum Keys: String {
     case cameraUniqueID, positioningMode, pinnedCorner, cursorPosition
     case cameraShape, cameraSize, isMirrored, borderStyle, borderWidth
     case freeDragPositionX, freeDragPositionY
+    case baseOpacity, shadowEnabled, shadowIntensity
+    case velocityScalingEnabled, idleDimEnabled, idleTimeoutSeconds, idleDimmedOpacity
+    case clickFeedbackEnabled
 }

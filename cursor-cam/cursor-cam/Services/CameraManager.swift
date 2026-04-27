@@ -175,4 +175,11 @@ final class CameraManager: ObservableObject {
             self?.session?.startRunning()
         }
     }
+
+    func createPanelPreviewLayer() -> AVCaptureVideoPreviewLayer? {
+        guard let session else { return nil }
+        let layer = AVCaptureVideoPreviewLayer(session: session)
+        layer.videoGravity = .resizeAspectFill
+        return layer
+    }
 }

@@ -1,6 +1,10 @@
 import AppKit
 import CoreGraphics
 
+extension Notification.Name {
+    static let cursorCamClickFeedback = Notification.Name("cursorCamClickFeedback")
+}
+
 final class HotkeyMonitor {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -19,6 +23,8 @@ final class HotkeyMonitor {
         let eventMask = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
             | CGEventMask(1 << CGEventType.keyDown.rawValue)
             | CGEventMask(1 << CGEventType.keyUp.rawValue)
+            | CGEventMask(1 << CGEventType.leftMouseDown.rawValue)
+            | CGEventMask(1 << CGEventType.rightMouseDown.rawValue)
 
         let callback: CGEventTapCallBack = { _, eventType, event, userInfo in
             guard let userInfo else {
@@ -79,6 +85,16 @@ final class HotkeyMonitor {
             if let tap = eventTap {
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
+            return Unmanaged.passUnretained(event)
+        }
+
+        switch type {
+        case .leftMouseDown, .rightMouseDown:
+            NotificationCenter.default.post(name: .cursorCamClickFeedback, object: nil)
+            return Unmanaged.passUnretained(event)
+        case .keyDown, .keyUp, .flagsChanged:
+            break
+        default:
             return Unmanaged.passUnretained(event)
         }
 

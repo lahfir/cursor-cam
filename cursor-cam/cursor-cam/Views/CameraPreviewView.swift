@@ -8,6 +8,8 @@ struct CameraPreviewView: View {
     let screen: NSScreen
 
     @State private var dragOffset: CGSize = .zero
+    @State private var clickRingScale: CGFloat = 1.0
+    @State private var clickRingOpacity: Double = 0.0
 
     private var state: ScreenCamState { overlayManager.stateForScreen(screen) }
 
@@ -15,23 +17,75 @@ struct CameraPreviewView: View {
     private var camHeight: CGFloat { settings.cameraShape.dimensions(for: settings.cameraSize).height }
     private var cornerRadius: CGFloat { settings.cameraShape.cornerRadius(for: settings.cameraSize) }
 
+    var finalOpacity: Double {
+        max(0.15, Double(state.alpha) * settings.baseOpacity * Double(overlayManager.idleDimMultiplier))
+    }
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.001)
 
+            // Click feedback ring (drawn behind cam content)
+            if settings.clickFeedbackEnabled {
+                clickRing
+                    .position(x: state.position.x + dragOffset.width,
+                              y: state.position.y + dragOffset.height)
+            }
+
+            // Cam content with shadow, scale, and opacity
             camContent
                 .frame(width: camWidth, height: camHeight)
+                .scaleEffect(overlayManager.velocityScale)
+                .shadow(
+                    color: .black.opacity(settings.shadowEnabled ? settings.shadowIntensity.shadowOpacity : 0),
+                    radius: settings.shadowEnabled ? settings.shadowIntensity.shadowRadius : 0,
+                    x: 0, y: settings.shadowEnabled ? settings.shadowIntensity.shadowOffset : 0
+                )
                 .clipShape(clipShape)
                 .overlay { border }
                 .position(x: state.position.x + dragOffset.width,
                           y: state.position.y + dragOffset.height)
                 .animation(springOrNil, value: state.position)
                 .animation(.easeInOut(duration: 0.25), value: state.alpha)
-                .opacity(state.alpha)
+                .animation(.spring(response: 0.2, dampingFraction: 0.6, blendDuration: 0), value: overlayManager.velocityScale)
+                .animation(.easeInOut(duration: 0.4), value: overlayManager.idleDimMultiplier)
+                .opacity(finalOpacity)
                 .gesture(freeDragMode ? drag : nil)
         }
         .frame(width: screen.frame.width, height: screen.frame.height)
         .ignoresSafeArea()
+        .onReceive(NotificationCenter.default.publisher(for: .cursorCamClickFeedback)) { _ in
+            triggerClickFeedback()
+        }
+    }
+
+    // MARK: - Click Ring
+
+    @ViewBuilder
+    private var clickRing: some View {
+        clipShape
+            .stroke(Color.white.opacity(clickRingOpacity), lineWidth: 2)
+            .frame(width: camWidth, height: camHeight)
+            .scaleEffect(clickRingScale)
+            .opacity(clickRingOpacity)
+    }
+
+    func triggerClickFeedback() {
+        guard settings.clickFeedbackEnabled else { return }
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            clickRingScale = 1.5
+            clickRingOpacity = 0.6
+            withAnimation(.easeOut(duration: 0.3)) {
+                clickRingOpacity = 0
+            }
+        } else {
+            clickRingScale = 1.0
+            clickRingOpacity = 0.6
+            withAnimation(.easeOut(duration: 0.3)) {
+                clickRingScale = 1.5
+                clickRingOpacity = 0
+            }
+        }
     }
 
     // MARK: - Content
@@ -115,7 +169,7 @@ struct CameraPreviewView: View {
 
 // MARK: - Preview Layer Bridge
 
-private struct CameraPreviewLayerView: NSViewRepresentable {
+struct CameraPreviewLayerView: NSViewRepresentable {
     let previewLayer: AVCaptureVideoPreviewLayer
 
     func makeNSView(context: Context) -> CameraPreviewNSView {
@@ -129,7 +183,7 @@ private struct CameraPreviewLayerView: NSViewRepresentable {
     }
 }
 
-private final class CameraPreviewNSView: NSView {
+final class CameraPreviewNSView: NSView {
     private var layingOut = false
 
     var previewLayer: AVCaptureVideoPreviewLayer? {
@@ -165,7 +219,7 @@ private final class CameraPreviewNSView: NSView {
 
 // MARK: - Shape Eraser
 
-private struct AnyShape: Shape, @unchecked Sendable {
+struct AnyShape: Shape, @unchecked Sendable {
     private let path: @Sendable (CGRect) -> Path
 
     init<S: Shape & Sendable>(_ shape: S) { path = { shape.path(in: $0) } }
