@@ -25,8 +25,8 @@ enum CursorPosition: String, CaseIterable {
 enum CameraShape: String, CaseIterable {
     case circle
     case roundedSquare
-    case verticalPill
-    case horizontalPill
+    case horizontal
+    case vertical
 }
 
 enum BorderStyle: String, CaseIterable {
@@ -55,25 +55,21 @@ extension CameraShape {
         return switch self {
         case .circle, .roundedSquare:
             (base, base)
-        case .verticalPill:
-            (base * 0.65, base)
-        case .horizontalPill:
-            (base, base * 0.65)
+        case .horizontal:
+            (base, base * 0.56)
+        case .vertical:
+            (base * 0.56, base)
         }
     }
 
     func cornerRadius(for size: CameraSize) -> CGFloat {
-        let dims = dimensions(for: size)
-        let smaller = min(dims.width, dims.height)
-        return switch self {
+        switch self {
         case .circle:
-            smaller / 2
+            return dimensions(for: size).width / 2
         case .roundedSquare:
-            smaller * 0.18
-        case .verticalPill:
-            smaller / 2
-        case .horizontalPill:
-            smaller / 2
+            return 8
+        case .horizontal, .vertical:
+            return 6
         }
     }
 }
@@ -81,31 +77,31 @@ extension CameraShape {
 @MainActor
 final class SettingsStore: ObservableObject {
     @Published var selectedCameraUniqueID: String? {
-        didSet { write(key: .cameraUniqueID, value: selectedCameraUniqueID) }
+        didSet { write(.cameraUniqueID, selectedCameraUniqueID) }
     }
     @Published var positioningMode: PositioningMode {
-        didSet { write(key: .positioningMode, value: positioningMode.rawValue) }
+        didSet { write(.positioningMode, positioningMode.rawValue) }
     }
     @Published var pinnedCorner: Corner {
-        didSet { write(key: .pinnedCorner, value: pinnedCorner.rawValue) }
+        didSet { write(.pinnedCorner, pinnedCorner.rawValue) }
     }
     @Published var cursorPosition: CursorPosition {
-        didSet { write(key: .cursorPosition, value: cursorPosition.rawValue) }
+        didSet { write(.cursorPosition, cursorPosition.rawValue) }
     }
     @Published var cameraShape: CameraShape {
-        didSet { write(key: .cameraShape, value: cameraShape.rawValue) }
+        didSet { write(.cameraShape, cameraShape.rawValue) }
     }
     @Published var cameraSize: CameraSize {
-        didSet { write(key: .cameraSize, value: cameraSize.rawValue) }
+        didSet { write(.cameraSize, cameraSize.rawValue) }
     }
     @Published var isMirrored: Bool {
-        didSet { write(key: .isMirrored, value: isMirrored) }
+        didSet { write(.isMirrored, isMirrored) }
     }
     @Published var borderStyle: BorderStyle {
-        didSet { write(key: .borderStyle, value: borderStyle.rawValue) }
+        didSet { write(.borderStyle, borderStyle.rawValue) }
     }
     @Published var borderWidth: CGFloat {
-        didSet { write(key: .borderWidth, value: borderWidth) }
+        didSet { write(.borderWidth, borderWidth) }
     }
     @Published var freeDragPosition: CGPoint? {
         didSet {
@@ -118,13 +114,13 @@ final class SettingsStore: ObservableObject {
     private let defaults = UserDefaults.standard
 
     init() {
-        self.positioningMode = Self.readEnum(key: .positioningMode, defaultValue: .followCursor)
-        self.pinnedCorner = Self.readEnum(key: .pinnedCorner, defaultValue: .bottomRight)
-        self.cursorPosition = Self.readEnum(key: .cursorPosition, defaultValue: .center)
-        self.cameraShape = Self.readEnum(key: .cameraShape, defaultValue: .circle)
-        self.cameraSize = Self.readEnum(key: .cameraSize, defaultValue: .medium)
+        self.positioningMode = Self.read(.positioningMode, default: .followCursor)
+        self.pinnedCorner = Self.read(.pinnedCorner, default: .bottomRight)
+        self.cursorPosition = Self.read(.cursorPosition, default: .center)
+        self.cameraShape = Self.read(.cameraShape, default: .circle)
+        self.cameraSize = Self.read(.cameraSize, default: .medium)
         self.isMirrored = defaults.object(forKey: Keys.isMirrored.rawValue) as? Bool ?? true
-        self.borderStyle = Self.readEnum(key: .borderStyle, defaultValue: .none)
+        self.borderStyle = Self.read(.borderStyle, default: .none)
         self.borderWidth = defaults.object(forKey: Keys.borderWidth.rawValue) as? CGFloat ?? 2
         self.selectedCameraUniqueID = defaults.string(forKey: Keys.cameraUniqueID.rawValue)
 
@@ -136,7 +132,7 @@ final class SettingsStore: ObservableObject {
         }
     }
 
-    private func write<T>(key: Keys, value: T?) {
+    private func write<T>(_ key: Keys, _ value: T?) {
         if let value {
             defaults.set(value, forKey: key.rawValue)
         } else {
@@ -144,14 +140,9 @@ final class SettingsStore: ObservableObject {
         }
     }
 
-    private static func readEnum<T: RawRepresentable>(
-        key: Keys,
-        defaultValue: T
-    ) -> T where T.RawValue == String {
+    private static func read<T: RawRepresentable>(_ key: Keys, default: T) -> T where T.RawValue == String {
         guard let raw = UserDefaults.standard.string(forKey: key.rawValue),
-              let value = T(rawValue: raw) else {
-            return defaultValue
-        }
+              let value = T(rawValue: raw) else { return `default` }
         return value
     }
 }

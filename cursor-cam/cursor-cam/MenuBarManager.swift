@@ -169,8 +169,8 @@ final class MenuBarManager {
         let shapes: [(CameraShape, String)] = [
             (.circle, "Circle"),
             (.roundedSquare, "Rounded Square"),
-            (.verticalPill, "Vertical Pill"),
-            (.horizontalPill, "Horizontal Pill")
+            (.horizontal, "Horizontal"),
+            (.vertical, "Vertical")
         ]
         for (shape, name) in shapes {
             let item = NSMenuItem(
