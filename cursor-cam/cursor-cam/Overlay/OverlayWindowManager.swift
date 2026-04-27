@@ -68,7 +68,7 @@ final class OverlayWindowManager: ObservableObject {
             )
 
             let hostingView = NSHostingView(rootView: previewView)
-            hostingView.frame = screen.frame
+            hostingView.frame = NSRect(origin: .zero, size: screen.frame.size)
             hostingView.wantsLayer = true
             window.contentView = hostingView
 
