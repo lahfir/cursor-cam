@@ -18,6 +18,7 @@ final class OverlayWindowManager: ObservableObject {
 
     private let settings: SettingsStore
     private let cameraManager: CameraManager
+    private let audioMonitor: AudioLevelMonitor
 
     private static let camGap: CGFloat = 8
     private static let cornerMargin: CGFloat = 20
@@ -28,9 +29,10 @@ final class OverlayWindowManager: ObservableObject {
 
     @Published private(set) var screenStates: [ObjectIdentifier: ScreenCamState] = [:]
 
-    init(settings: SettingsStore, cameraManager: CameraManager) {
+    init(settings: SettingsStore, cameraManager: CameraManager, audioMonitor: AudioLevelMonitor) {
         self.settings = settings
         self.cameraManager = cameraManager
+        self.audioMonitor = audioMonitor
         observeScreenChanges()
     }
 
@@ -49,16 +51,48 @@ final class OverlayWindowManager: ObservableObject {
         guard !isVisible else { return }
 
         hideOverlayWindows()
-        createOverlays()
-        isVisible = true
 
+        let mouse = NSEvent.mouseLocation
+        let activeScreen = NSScreen.screens.first { $0.frame.contains(mouse) }
         let ignores = settings.positioningMode != .freeDrag
-        for window in overlayWindows {
+        var initialStates: [ObjectIdentifier: ScreenCamState] = [:]
+
+        for screen in NSScreen.screens {
+            let window = OverlayWindow(screen: screen)
+            window.assignedScreen = screen
             window.ignoresMouseEvents = ignores
+
+            let previewView = CameraPreviewView(
+                cameraManager: cameraManager,
+                settings: settings,
+                overlayManager: self,
+                audioMonitor: audioMonitor,
+                screen: screen
+            )
+
+            let hostingView = NSHostingView(rootView: previewView)
+            hostingView.frame = screen.frame
+            hostingView.wantsLayer = true
+            window.contentView = hostingView
+
+            let id = ObjectIdentifier(screen)
+            var state = ScreenCamState()
+
+            if screen == activeScreen {
+                state.alpha = 1
+                state.position = computePosition(for: screen)
+            } else {
+                state.alpha = 0
+            }
+            initialStates[id] = state
+
+            window.alphaValue = state.alpha
             window.orderFrontRegardless()
+            overlayWindows.append(window)
         }
 
-        fadeIn(duration: 0.25)
+        screenStates = initialStates
+        isVisible = true
         startPositioningLoop()
     }
 
@@ -132,37 +166,40 @@ final class OverlayWindowManager: ObservableObject {
     func camPosition(for screen: NSScreen) -> CGPoint {
         let mouse = NSEvent.mouseLocation
         let base = convertToSwiftUICoordinates(mouse, screen: screen)
-        let half = settings.cameraSize.pixelValue / 2
+        let (width, height) = settings.cameraShape.dimensions(for: settings.cameraSize)
+        let halfW = width / 2
+        let halfH = height / 2
         let gap = Self.camGap
 
         return switch settings.cursorPosition {
         case .center:
             base
         case .bottomRight:
-            CGPoint(x: base.x + half + gap, y: base.y + half + gap)
+            CGPoint(x: base.x + halfW + gap, y: base.y + halfH + gap)
         case .bottomLeft:
-            CGPoint(x: base.x - half - gap, y: base.y + half + gap)
+            CGPoint(x: base.x - halfW - gap, y: base.y + halfH + gap)
         case .topLeft:
-            CGPoint(x: base.x - half - gap, y: base.y - half - gap)
+            CGPoint(x: base.x - halfW - gap, y: base.y - halfH - gap)
         case .topRight:
-            CGPoint(x: base.x + half + gap, y: base.y - half - gap)
+            CGPoint(x: base.x + halfW + gap, y: base.y - halfH - gap)
         }
     }
 
     func cornerPosition(for corner: Corner, screen: NSScreen) -> CGPoint {
         let margin = Self.cornerMargin
-        let size = settings.cameraSize.pixelValue
-        let halfSize = size / 2
+        let (width, height) = settings.cameraShape.dimensions(for: settings.cameraSize)
+        let halfW = width / 2
+        let halfH = height / 2
 
         return switch corner {
         case .topLeft:
-            CGPoint(x: margin + halfSize, y: margin + halfSize)
+            CGPoint(x: margin + halfW, y: margin + halfH)
         case .topRight:
-            CGPoint(x: screen.frame.width - margin - halfSize, y: margin + halfSize)
+            CGPoint(x: screen.frame.width - margin - halfW, y: margin + halfH)
         case .bottomLeft:
-            CGPoint(x: margin + halfSize, y: screen.frame.height - margin - halfSize)
+            CGPoint(x: margin + halfW, y: screen.frame.height - margin - halfH)
         case .bottomRight:
-            CGPoint(x: screen.frame.width - margin - halfSize, y: screen.frame.height - margin - halfSize)
+            CGPoint(x: screen.frame.width - margin - halfW, y: screen.frame.height - margin - halfH)
         }
     }
 
@@ -192,31 +229,15 @@ final class OverlayWindowManager: ObservableObject {
 
     // MARK: - Private
 
-    private func createOverlays() {
-        var states: [ObjectIdentifier: ScreenCamState] = [:]
-
-        for screen in NSScreen.screens {
-            let window = OverlayWindow(screen: screen)
-            window.assignedScreen = screen
-
-            let previewView = CameraPreviewView(
-                cameraManager: cameraManager,
-                settings: settings,
-                overlayManager: self,
-                screen: screen
-            )
-
-            let hostingView = NSHostingView(rootView: previewView)
-            hostingView.frame = screen.frame
-            hostingView.wantsLayer = true
-            window.contentView = hostingView
-            overlayWindows.append(window)
-
-            let initialState = ScreenCamState(alpha: 0)
-            states[ObjectIdentifier(screen)] = initialState
+    private func computePosition(for screen: NSScreen) -> CGPoint {
+        switch settings.positioningMode {
+        case .followCursor:
+            return camPosition(for: screen)
+        case .pinToCorner:
+            return cornerPosition(for: settings.pinnedCorner, screen: screen)
+        case .freeDrag:
+            return settings.freeDragPosition ?? camPosition(for: screen)
         }
-
-        screenStates = states
     }
 
     private func hideOverlayWindows() {
@@ -225,18 +246,6 @@ final class OverlayWindowManager: ObservableObject {
             window.contentView = nil
         }
         overlayWindows.removeAll()
-    }
-
-    private func fadeIn(duration: TimeInterval) {
-        var states = screenStates
-        for key in states.keys {
-            states[key]?.alpha = 1
-        }
-        screenStates = states
-
-        for window in overlayWindows {
-            window.alphaValue = 1
-        }
     }
 
     private func startPositioningLoop() {
@@ -378,15 +387,9 @@ final class OverlayWindowManager: ObservableObject {
     }
 
     private func syncOverlaysToScreens() {
-        hideOverlayWindows()
-        createOverlays()
-        if showIntent {
-            for window in overlayWindows {
-                window.orderFrontRegardless()
-            }
-            fadeIn(duration: 0.1)
-        }
-        startPositioningLoop()
+        guard isVisible else { return }
+        hide()
+        show()
     }
 
     private func observeScreenChanges() {

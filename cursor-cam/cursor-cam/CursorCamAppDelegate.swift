@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import Combine
 import SwiftUI
 
@@ -10,12 +11,18 @@ final class CursorCamAppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyMonitor: HotkeyMonitor?
     private var menuBarManager: MenuBarManager?
     private var permissionsManager: PermissionsManager?
+    private var audioMonitor: AudioLevelMonitor?
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let settings = SettingsStore()
         let camera = CameraManager(settings: settings)
-        let overlay = OverlayWindowManager(settings: settings, cameraManager: camera)
+        let audio = AudioLevelMonitor()
+        let overlay = OverlayWindowManager(
+            settings: settings,
+            cameraManager: camera,
+            audioMonitor: audio
+        )
         let hotkey = HotkeyMonitor()
         let menuBar = MenuBarManager(
             settings: settings,
@@ -26,6 +33,7 @@ final class CursorCamAppDelegate: NSObject, NSApplicationDelegate {
 
         settingsStore = settings
         cameraManager = camera
+        audioMonitor = audio
         overlayWindowManager = overlay
         hotkeyMonitor = hotkey
         menuBarManager = menuBar
@@ -59,11 +67,13 @@ final class CursorCamAppDelegate: NSObject, NSApplicationDelegate {
         }
 
         observePermissions(permissions, camera: camera, overlay: overlay, settings: settings)
+        observeGlow(settings: settings, audio: audio, overlay: overlay)
         observeSystemNotifications()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         cancellables.removeAll()
+        audioMonitor?.stop()
         hotkeyMonitor?.stop()
         cameraManager?.stopSession()
         overlayWindowManager?.hide()
@@ -89,27 +99,45 @@ final class CursorCamAppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &cancellables)
     }
 
+    private func observeGlow(
+        settings: SettingsStore,
+        audio: AudioLevelMonitor,
+        overlay: OverlayWindowManager
+    ) {
+        settings.$isGlowEnabled
+            .removeDuplicates()
+            .sink { [weak audio, weak overlay] enabled in
+                guard let audio, let overlay else { return }
+                if enabled, overlay.isShowing {
+                    audio.start()
+                } else {
+                    audio.stop()
+                }
+            }
+            .store(in: &cancellables)
+
+        // Auto-stop audio when cam is hidden
+        Timer.publish(every: 1, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak audio, weak overlay] _ in
+                guard let audio, let overlay else { return }
+                if !overlay.isShowing, audio.normalizedLevel > 0 {
+                    audio.stop()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
     private func observeSystemNotifications() {
         let center = NotificationCenter.default
-
-        center.addObserver(
-            self,
-            selector: #selector(handleWillSleep),
-            name: NSWorkspace.willSleepNotification,
-            object: nil
-        )
-
-        center.addObserver(
-            self,
-            selector: #selector(handleDidWake),
-            name: NSWorkspace.didWakeNotification,
-            object: nil
-        )
+        center.addObserver(self, selector: #selector(handleWillSleep), name: NSWorkspace.willSleepNotification, object: nil)
+        center.addObserver(self, selector: #selector(handleDidWake), name: NSWorkspace.didWakeNotification, object: nil)
     }
 
     @objc private func handleWillSleep() {
         overlayWindowManager?.handleSleep()
         cameraManager?.handleSleep()
+        audioMonitor?.stop()
     }
 
     @objc private func handleDidWake() {

@@ -5,6 +5,7 @@ import XCTest
 final class OverlayWindowManagerTests: XCTestCase {
     private var settings: SettingsStore!
     private var cameraManager: CameraManager!
+    private var audioMonitor: AudioLevelMonitor!
     private var overlayManager: OverlayWindowManager!
 
     override func setUp() {
@@ -14,7 +15,8 @@ final class OverlayWindowManagerTests: XCTestCase {
         }
         settings = SettingsStore()
         cameraManager = CameraManager(settings: settings)
-        overlayManager = OverlayWindowManager(settings: settings, cameraManager: cameraManager)
+        audioMonitor = AudioLevelMonitor()
+        overlayManager = OverlayWindowManager(settings: settings, cameraManager: cameraManager, audioMonitor: audioMonitor)
     }
 
     func testInitialStateNotShowing() {
@@ -53,19 +55,19 @@ final class OverlayWindowManagerTests: XCTestCase {
     func testCornerPositionForBottomRight() {
         guard let screen = NSScreen.main else { return }
         let pos = overlayManager.cornerPosition(for: .bottomRight, screen: screen)
-        let size = settings.cameraSize.pixelValue
+        let dims = settings.cameraShape.dimensions(for: settings.cameraSize)
         XCTAssertGreaterThan(pos.x, screen.frame.width / 2)
         XCTAssertGreaterThan(pos.y, screen.frame.height / 2)
-        XCTAssertEqual(pos.x, screen.frame.width - 20 - size / 2)
-        XCTAssertEqual(pos.y, screen.frame.height - 20 - size / 2)
+        XCTAssertEqual(pos.x, screen.frame.width - 20 - dims.width / 2)
+        XCTAssertEqual(pos.y, screen.frame.height - 20 - dims.height / 2)
     }
 
     func testCornerPositionForTopLeft() {
         guard let screen = NSScreen.main else { return }
         let pos = overlayManager.cornerPosition(for: .topLeft, screen: screen)
-        let size = settings.cameraSize.pixelValue
-        XCTAssertEqual(pos.x, 20 + size / 2)
-        XCTAssertEqual(pos.y, 20 + size / 2)
+        let dims = settings.cameraShape.dimensions(for: settings.cameraSize)
+        XCTAssertEqual(pos.x, 20 + dims.width / 2)
+        XCTAssertEqual(pos.y, 20 + dims.height / 2)
     }
 
     func testCamPositionReturnsPointWithOffset() {

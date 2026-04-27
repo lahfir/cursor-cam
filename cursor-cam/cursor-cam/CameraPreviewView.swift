@@ -5,12 +5,23 @@ struct CameraPreviewView: View {
     @ObservedObject var cameraManager: CameraManager
     @ObservedObject var settings: SettingsStore
     @ObservedObject var overlayManager: OverlayWindowManager
+    @ObservedObject var audioMonitor: AudioLevelMonitor
     let screen: NSScreen
 
     @State private var dragOffset: CGSize = .zero
 
     private var state: ScreenCamState {
         overlayManager.stateForScreen(screen)
+    }
+
+    private var camWidth: CGFloat {
+        settings.cameraShape.dimensions(for: settings.cameraSize).width
+    }
+    private var camHeight: CGFloat {
+        settings.cameraShape.dimensions(for: settings.cameraSize).height
+    }
+    private var cornerRadius: CGFloat {
+        settings.cameraShape.cornerRadius(for: settings.cameraSize)
     }
 
     var body: some View {
@@ -33,17 +44,8 @@ struct CameraPreviewView: View {
                 .gesture(
                     settings.positioningMode == .freeDrag
                         ? DragGesture()
-                            .onChanged { value in
-                                dragOffset = value.translation
-                            }
-                            .onEnded { value in
-                                let newPosition = CGPoint(
-                                    x: state.position.x + value.translation.width,
-                                    y: state.position.y + value.translation.height
-                                )
-                                dragOffset = .zero
-                                overlayManager.onFreeDragMoved(to: newPosition, screen: screen)
-                            }
+                            .onChanged { dragOffset = $0.translation }
+                            .onEnded { endDrag($0) }
                         : nil
                 )
         }
@@ -53,31 +55,41 @@ struct CameraPreviewView: View {
 
     @ViewBuilder
     private var camBubble: some View {
-        Group {
-            switch cameraManager.cameraState {
-            case .running:
-                if let previewLayer = cameraManager.previewLayer {
-                    CameraPreviewLayerView(previewLayer: previewLayer)
-                        .scaleEffect(x: settings.isMirrored ? -1 : 1, y: 1)
-                        .clipShape(camClipShape())
-                        .overlay { camBorder }
+        ZStack {
+            Group {
+                switch cameraManager.cameraState {
+                case .running:
+                    if let previewLayer = cameraManager.previewLayer {
+                        CameraPreviewLayerView(previewLayer: previewLayer)
+                            .scaleEffect(x: settings.isMirrored ? -1 : 1, y: 1)
+                            .clipShape(camClipShape())
+                    }
+                case .starting:
+                    camPlaceholder(systemName: "circle.dotted", withMaterial: true)
+                case .disconnected, .error:
+                    camPlaceholder(systemName: "camera.badge.ellipsis", withMaterial: true)
+                case .unavailable, .restricted, .notDetermined, .denied:
+                    camPlaceholder(systemName: "camera.metering.unknown", withMaterial: true)
                 }
-            case .starting:
-                camPlaceholder(systemName: "circle.dotted")
-                    .symbolEffect(.rotate)
-                    .overlay { camBorder }
-            case .disconnected, .error:
-                camPlaceholder(systemName: "camera.badge.ellipsis")
-                    .overlay { camBorder }
-            case .unavailable, .restricted, .notDetermined, .denied:
-                camPlaceholder(systemName: "camera.metering.unknown")
-                    .overlay { camBorder }
             }
+            .frame(width: camWidth, height: camHeight)
+
+            camBorder
+            glowOverlay
         }
-        .frame(
-            width: settings.cameraSize.pixelValue,
-            height: settings.cameraSize.pixelValue
-        )
+    }
+
+    @ViewBuilder
+    private var glowOverlay: some View {
+        if settings.isGlowEnabled {
+            camClipShape()
+                .stroke(
+                    Color.white.opacity(0.3 + Double(audioMonitor.normalizedLevel) * 0.7),
+                    style: StrokeStyle(lineWidth: settings.borderWidth + 4)
+                )
+                .blur(radius: 6 + audioMonitor.normalizedLevel * 8)
+                .animation(.easeOut(duration: 0.08), value: audioMonitor.normalizedLevel)
+        }
     }
 
     @ViewBuilder
@@ -97,14 +109,31 @@ struct CameraPreviewView: View {
         }
     }
 
-    private func camPlaceholder(systemName: String) -> some View {
-        RoundedRectangle(cornerRadius: settings.cameraSize.cornerRadius)
-            .fill(.ultraThinMaterial)
-            .overlay {
+    private func endDrag(_ value: DragGesture.Value) {
+        let newPosition = CGPoint(
+            x: state.position.x + value.translation.width,
+            y: state.position.y + value.translation.height
+        )
+        dragOffset = .zero
+        overlayManager.onFreeDragMoved(to: newPosition, screen: screen)
+    }
+
+    private func camPlaceholder(systemName: String, withMaterial: Bool = false) -> some View {
+        Group {
+            if withMaterial {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        Image(systemName: systemName)
+                            .font(.system(size: 24))
+                            .foregroundStyle(.secondary)
+                    }
+            } else {
                 Image(systemName: systemName)
                     .font(.system(size: 24))
                     .foregroundStyle(.secondary)
             }
+        }
     }
 
     private func camClipShape() -> AnyShape {
@@ -112,7 +141,11 @@ struct CameraPreviewView: View {
         case .circle:
             return AnyShape(Circle())
         case .roundedSquare:
-            return AnyShape(RoundedRectangle(cornerRadius: settings.cameraSize.cornerRadius))
+            return AnyShape(RoundedRectangle(cornerRadius: cornerRadius))
+        case .verticalPill:
+            return AnyShape(RoundedRectangle(cornerRadius: cornerRadius))
+        case .horizontalPill:
+            return AnyShape(RoundedRectangle(cornerRadius: cornerRadius))
         }
     }
 }

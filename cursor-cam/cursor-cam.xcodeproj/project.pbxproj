@@ -406,6 +406,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Cursor-Cam needs camera access to show your video overlay.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Cursor-Cam uses the microphone ONLY to create an audio-reactive glow effect around the camera border. Audio is never recorded or stored.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -442,6 +443,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Cursor-Cam needs camera access to show your video overlay.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Cursor-Cam uses the microphone ONLY to create an audio-reactive glow effect around the camera border. Audio is never recorded or stored.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -5,6 +5,7 @@ import XCTest
 final class PositioningModeTests: XCTestCase {
     private var settings: SettingsStore!
     private var cameraManager: CameraManager!
+    private var audioMonitor: AudioLevelMonitor!
     private var overlayManager: OverlayWindowManager!
 
     override func setUp() {
@@ -14,7 +15,8 @@ final class PositioningModeTests: XCTestCase {
         }
         settings = SettingsStore()
         cameraManager = CameraManager(settings: settings)
-        overlayManager = OverlayWindowManager(settings: settings, cameraManager: cameraManager)
+        audioMonitor = AudioLevelMonitor()
+        overlayManager = OverlayWindowManager(settings: settings, cameraManager: cameraManager, audioMonitor: audioMonitor)
     }
 
     func testDefaultModeIsFollowCursor() {
@@ -68,9 +70,11 @@ final class PositioningModeTests: XCTestCase {
         let pos = overlayManager.camPosition(for: screen)
         let mouse = NSEvent.mouseLocation
         let base = convertForTest(mouse, screen: screen)
-        let half = settings.cameraSize.pixelValue / 2
-        XCTAssertEqual(pos.x, base.x + half + 8, accuracy: 0.1)
-        XCTAssertEqual(pos.y, base.y + half + 8, accuracy: 0.1)
+        let dims = CameraShape.circle.dimensions(for: .medium)
+        let halfW = dims.width / 2
+        let halfH = dims.height / 2
+        XCTAssertEqual(pos.x, base.x + halfW + 8, accuracy: 0.1)
+        XCTAssertEqual(pos.y, base.y + halfH + 8, accuracy: 0.1)
     }
 
     func testAllCursorPositionsAreCaseIterable() {
