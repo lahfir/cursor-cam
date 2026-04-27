@@ -47,8 +47,8 @@ struct CameraPreviewView: View {
                     .animation(springOrNil, value: state.position)
                     .animation(.easeInOut(duration: 0.25), value: state.alpha)
                     .animation(.spring(response: 0.2, dampingFraction: 0.6, blendDuration: 0), value: overlayManager.velocityScale)
-                    .animation(.easeInOut(duration: 0.4), value: overlayManager.idleDimMultiplier)
                     .opacity(finalOpacity)
+                    .animation(dimAnimation, value: finalOpacity)
                     .gesture(freeDragMode ? drag : nil)
             }
             .frame(width: geo.size.width, height: geo.size.height)
@@ -188,6 +188,15 @@ struct CameraPreviewView: View {
 
     private var springOrNil: Animation? {
         freeDragMode ? nil : .spring(response: 0.2, dampingFraction: 0.6, blendDuration: 0)
+    }
+
+    /// Idle dim fades slower (0.55s) than restore (0.20s) so the cam never
+    /// feels sluggish coming back, but the fade-out reads as deliberate.
+    /// Reduce-Motion users get instant transitions to honor the system flag.
+    private var dimAnimation: Animation? {
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion { return nil }
+        let dimming = overlayManager.idleDimMultiplier < 1.0
+        return .easeInOut(duration: dimming ? 0.55 : 0.20)
     }
 }
 
