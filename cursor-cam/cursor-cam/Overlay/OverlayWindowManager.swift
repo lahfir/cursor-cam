@@ -3,18 +3,26 @@ import AVFoundation
 import Combine
 import SwiftUI
 
-struct ScreenCamState: Equatable {
+/// State of the cam within the active screen's local coordinate space.
+struct CamState: Equatable {
     var position: CGPoint = .zero
     var alpha: CGFloat = 0
 }
 
+/// Owns the single floating cam window and drives the 60 fps positioning
+/// tick. The window is repositioned across screens by adjusting its `frame`
+/// to the screen that currently contains the cursor — there is exactly one
+/// `AVCaptureVideoPreviewLayer` instance, which avoids the per-screen layer
+/// conflict that broke the previous multi-window approach.
 @MainActor
 final class OverlayWindowManager: ObservableObject {
-    private var overlayWindows: [OverlayWindow] = []
+    private var overlay: OverlayWindow?
+    private var hostingView: NSHostingView<CameraPreviewView>?
     private var cursorTrackingTimer: Timer?
     private var isVisible = false
     private var showIntent = false
-    private var modeSwitchTask: Task<Void, Never>?
+
+    private var activeScreen: NSScreen?
 
     private let settings: SettingsStore
     private let cameraManager: CameraManager
@@ -22,12 +30,9 @@ final class OverlayWindowManager: ObservableObject {
 
     private static let camGap: CGFloat = 8
     private static let cornerMargin: CGFloat = 20
-    private static let screenSwitchDebounce: TimeInterval = 0.15
+    private static let tickInterval: TimeInterval = 1.0 / 60.0
 
-    private var lastScreenSwitchTime: Date = .distantPast
-    private var previousActiveFrame: CGRect?
-
-    @Published private(set) var screenStates: [ObjectIdentifier: ScreenCamState] = [:]
+    @Published private(set) var camState: CamState = CamState()
     @Published private(set) var velocityScale: CGFloat = 1.0
     @Published private(set) var idleDimMultiplier: CGFloat = 1.0
 
@@ -38,132 +43,80 @@ final class OverlayWindowManager: ObservableObject {
         observeScreenChanges()
     }
 
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
+    deinit { NotificationCenter.default.removeObserver(self) }
 
     var isShowing: Bool { isVisible }
 
-    func stateForScreen(_ screen: NSScreen) -> ScreenCamState {
-        screenStates[ObjectIdentifier(screen)] ?? ScreenCamState()
-    }
+    // MARK: - Lifecycle
 
     func show() {
         showIntent = true
         guard !isVisible else { return }
 
-        hideOverlayWindows()
-
         let mouse = NSEvent.mouseLocation
-        let screens = NSScreen.screens
-        let ignores = settings.positioningMode != .freeDrag
-        var initialStates: [ObjectIdentifier: ScreenCamState] = [:]
+        let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main ?? NSScreen.screens.first
+        guard let screen else { return }
 
-        for screen in screens {
-            let window = OverlayWindow(screen: screen)
-            window.assignedScreen = screen
-            window.ignoresMouseEvents = ignores
+        let window = overlay ?? buildWindow()
+        overlay = window
+        moveWindow(to: screen)
+        activeScreen = screen
 
-            let previewView = CameraPreviewView(
-                cameraManager: cameraManager,
-                settings: settings,
-                overlayManager: self,
-                screen: screen
-            )
+        camState = CamState(position: computePosition(for: screen), alpha: 1)
+        window.alphaValue = 1
+        window.ignoresMouseEvents = settings.positioningMode != .freeDrag
+        window.orderFrontRegardless()
 
-            let hostingView = NSHostingView(rootView: previewView)
-            hostingView.frame = NSRect(origin: .zero, size: screen.frame.size)
-            hostingView.wantsLayer = true
-            window.contentView = hostingView
-
-            let id = ObjectIdentifier(screen)
-            var state = ScreenCamState()
-
-            if screen.frame.contains(mouse) {
-                state.alpha = 1
-                state.position = computePosition(for: screen)
-            } else {
-                state.alpha = 0
-            }
-            initialStates[id] = state
-
-            window.alphaValue = state.alpha
-            window.orderFrontRegardless()
-            overlayWindows.append(window)
-        }
-
-        screenStates = initialStates
         isVisible = true
         startPositioningLoop()
     }
 
     func hide() {
         showIntent = false
-        modeSwitchTask?.cancel()
-        modeSwitchTask = nil
         cursorTrackingTimer?.invalidate()
         cursorTrackingTimer = nil
         isVisible = false
         behaviorController.reset()
 
-        let windows = overlayWindows
-        overlayWindows.removeAll()
-        screenStates.removeAll()
-
+        guard let window = overlay else { return }
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.4
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
-            for window in windows {
-                window.animator().alphaValue = 0
-            }
-        }, completionHandler: {
-            for window in windows {
-                window.orderOut(nil)
-                window.contentView = nil
-            }
+            window.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            window.orderOut(nil)
+            self?.camState = CamState()
         })
     }
 
     func toggle() {
-        if showIntent {
-            hide()
-        } else {
-            show()
-        }
+        showIntent ? hide() : show()
     }
 
     func updateCamVisuals() {
         guard isVisible else { return }
-        hide()
-        show()
+        if let screen = activeScreen {
+            camState.position = computePosition(for: screen)
+        }
     }
 
     func onModeChanged() {
         guard isVisible else { return }
-
-        let ignores = settings.positioningMode != .freeDrag
-        for window in overlayWindows {
-            window.ignoresMouseEvents = ignores
-        }
-
+        overlay?.ignoresMouseEvents = settings.positioningMode != .freeDrag
         if settings.positioningMode == .freeDrag && settings.freeDragPosition == nil {
-            if let screen = screenContainingCursor() {
+            if let screen = activeScreen {
                 settings.freeDragPosition = camPosition(for: screen)
             }
         }
-
-        modeSwitchTask?.cancel()
     }
 
     func onFreeDragMoved(to position: CGPoint, screen: NSScreen) {
         guard settings.positioningMode == .freeDrag else { return }
         settings.freeDragPosition = position
-
-        let id = ObjectIdentifier(screen)
-        var state = screenStates[id] ?? ScreenCamState()
-        state.position = position
-        screenStates[id] = state
+        camState.position = position
     }
+
+    // MARK: - Position math
 
     func camPosition(for screen: NSScreen) -> CGPoint {
         let mouse = NSEvent.mouseLocation
@@ -174,16 +127,11 @@ final class OverlayWindowManager: ObservableObject {
         let gap = Self.camGap
 
         return switch settings.cursorPosition {
-        case .center:
-            base
-        case .bottomRight:
-            CGPoint(x: base.x + halfW + gap, y: base.y + halfH + gap)
-        case .bottomLeft:
-            CGPoint(x: base.x - halfW - gap, y: base.y + halfH + gap)
-        case .topLeft:
-            CGPoint(x: base.x - halfW - gap, y: base.y - halfH - gap)
-        case .topRight:
-            CGPoint(x: base.x + halfW + gap, y: base.y - halfH - gap)
+        case .center:      base
+        case .bottomRight: CGPoint(x: base.x + halfW + gap, y: base.y + halfH + gap)
+        case .bottomLeft:  CGPoint(x: base.x - halfW - gap, y: base.y + halfH + gap)
+        case .topLeft:     CGPoint(x: base.x - halfW - gap, y: base.y - halfH - gap)
+        case .topRight:    CGPoint(x: base.x + halfW + gap, y: base.y - halfH - gap)
         }
     }
 
@@ -192,26 +140,19 @@ final class OverlayWindowManager: ObservableObject {
         let (width, height) = settings.cameraShape.dimensions(for: settings.cameraSize)
         let halfW = width / 2
         let halfH = height / 2
+        let frame = screen.frame
 
         return switch corner {
-        case .topLeft:
-            CGPoint(x: margin + halfW, y: margin + halfH)
-        case .topRight:
-            CGPoint(x: screen.frame.width - margin - halfW, y: margin + halfH)
-        case .bottomLeft:
-            CGPoint(x: margin + halfW, y: screen.frame.height - margin - halfH)
-        case .bottomRight:
-            CGPoint(x: screen.frame.width - margin - halfW, y: screen.frame.height - margin - halfH)
+        case .topLeft:     CGPoint(x: margin + halfW, y: margin + halfH)
+        case .topRight:    CGPoint(x: frame.width - margin - halfW, y: margin + halfH)
+        case .bottomLeft:  CGPoint(x: margin + halfW, y: frame.height - margin - halfH)
+        case .bottomRight: CGPoint(x: frame.width - margin - halfW, y: frame.height - margin - halfH)
         }
     }
 
     func screenContainingCursor() -> NSScreen? {
-        let mouseLocation = NSEvent.mouseLocation
-        return NSScreen.screens.first { $0.frame.contains(mouseLocation) }
-    }
-
-    func overlayForScreen(_ screen: NSScreen) -> OverlayWindow? {
-        overlayWindows.first { $0.assignedScreen == screen }
+        let mouse = NSEvent.mouseLocation
+        return NSScreen.screens.first { $0.frame.contains(mouse) }
     }
 
     func handleSleep() {
@@ -221,108 +162,82 @@ final class OverlayWindowManager: ObservableObject {
 
     func handleWake() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            guard let self else { return }
-            if self.isVisible {
-                self.syncOverlaysToScreens()
-                self.startPositioningLoop()
-            }
+            guard let self, self.isVisible else { return }
+            self.startPositioningLoop()
         }
     }
 
-    // MARK: - Private
+    // MARK: - Window construction
 
-    private func computePosition(for screen: NSScreen) -> CGPoint {
-        switch settings.positioningMode {
-        case .followCursor:
-            return camPosition(for: screen)
-        case .pinToCorner:
-            return cornerPosition(for: settings.pinnedCorner, screen: screen)
-        case .freeDrag:
-            return settings.freeDragPosition ?? camPosition(for: screen)
-        }
+    private func buildWindow() -> OverlayWindow {
+        let window = OverlayWindow()
+        let preview = CameraPreviewView(
+            cameraManager: cameraManager,
+            settings: settings,
+            overlayManager: self
+        )
+        let hosting = NSHostingView(rootView: preview)
+        hosting.wantsLayer = true
+        hosting.frame = NSRect(origin: .zero, size: window.frame.size)
+        hosting.autoresizingMask = [.width, .height]
+        window.contentView = hosting
+        self.hostingView = hosting
+        return window
     }
 
-    private func hideOverlayWindows() {
-        for window in overlayWindows {
-            window.orderOut(nil)
-            window.contentView = nil
-        }
-        overlayWindows.removeAll()
+    private func moveWindow(to screen: NSScreen) {
+        overlay?.setFrame(screen.frame, display: true)
     }
+
+    // MARK: - Position loop
 
     private func startPositioningLoop() {
         cursorTrackingTimer?.invalidate()
-        cursorTrackingTimer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { [weak self] _ in
-            DispatchQueue.main.async {
-                self?.positioningTick()
-            }
+        cursorTrackingTimer = Timer.scheduledTimer(withTimeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async { self?.tick() }
         }
     }
 
-    private func positioningTick() {
-        guard isVisible, showIntent, !Task.isCancelled else { return }
+    private func tick() {
+        guard isVisible, showIntent else { return }
 
-        let mouseLocation = NSEvent.mouseLocation
-        behaviorController.tick(mouseLocation: mouseLocation)
+        let mouse = NSEvent.mouseLocation
+        behaviorController.tick(mouseLocation: mouse)
         velocityScale = behaviorController.velocityScale
         idleDimMultiplier = behaviorController.idleDimMultiplier
 
+        // Identify active screen — cursor's screen for follow / pin modes,
+        // freeDragPosition's screen for free drag mode.
+        let target = targetScreen(for: mouse) ?? activeScreen
+        guard let screen = target else { return }
+
+        if screen != activeScreen {
+            moveWindow(to: screen)
+            activeScreen = screen
+        }
+
+        camState.position = computePosition(for: screen)
+        camState.alpha = 1
+    }
+
+    private func targetScreen(for mouse: CGPoint) -> NSScreen? {
         switch settings.positioningMode {
-        case .followCursor:
-            tickFollowCursor(mouseLocation: mouseLocation)
-        case .pinToCorner:
-            tickPinToCorner(mouseLocation: mouseLocation)
+        case .followCursor, .pinToCorner:
+            return NSScreen.screens.first { $0.frame.contains(mouse) }
         case .freeDrag:
-            tickFreeDrag(mouseLocation: mouseLocation)
-        }
-    }
-
-    private func tickFollowCursor(mouseLocation: CGPoint) {
-        let activeFrame = NSScreen.screens.first { $0.frame.contains(mouseLocation) }?.frame
-        if activeFrame != previousActiveFrame {
-            let now = Date()
-            if now.timeIntervalSince(lastScreenSwitchTime) < Self.screenSwitchDebounce { return }
-            lastScreenSwitchTime = now
-            previousActiveFrame = activeFrame
-        }
-        applyTick { screen in
-            screen.frame.contains(mouseLocation) ? camPosition(for: screen) : nil
-        }
-    }
-
-    private func tickPinToCorner(mouseLocation: CGPoint) {
-        applyTick { screen in
-            screen.frame.contains(mouseLocation) ? cornerPosition(for: settings.pinnedCorner, screen: screen) : nil
-        }
-    }
-
-    private func tickFreeDrag(mouseLocation: CGPoint) {
-        guard let pos = settings.freeDragPosition else {
-            if let screen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) {
-                settings.freeDragPosition = camPosition(for: screen)
+            if let pos = settings.freeDragPosition {
+                return NSScreen.screens.first { $0.frame.contains(pos) }
             }
-            return
-        }
-        applyTick { screen in
-            screen.frame.contains(pos) ? pos : nil
+            return NSScreen.screens.first { $0.frame.contains(mouse) }
         }
     }
 
-    private func applyTick(positionProvider: (NSScreen) -> CGPoint?) {
-        var newStates = screenStates
-        for window in overlayWindows {
-            guard let screen = window.assignedScreen else { continue }
-            let id = ObjectIdentifier(screen)
-            var state = newStates[id] ?? ScreenCamState()
-            if let pos = positionProvider(screen) {
-                state.alpha = 1
-                state.position = pos
-            } else {
-                state.alpha = 0
-            }
-            newStates[id] = state
+    private func computePosition(for screen: NSScreen) -> CGPoint {
+        switch settings.positioningMode {
+        case .followCursor: return camPosition(for: screen)
+        case .pinToCorner:  return cornerPosition(for: settings.pinnedCorner, screen: screen)
+        case .freeDrag:     return settings.freeDragPosition ?? camPosition(for: screen)
         }
-        screenStates = newStates
     }
 
     private func convertToSwiftUICoordinates(_ point: CGPoint, screen: NSScreen) -> CGPoint {
@@ -331,11 +246,7 @@ final class OverlayWindowManager: ObservableObject {
         return CGPoint(x: x, y: y)
     }
 
-    private func syncOverlaysToScreens() {
-        guard isVisible else { return }
-        hide()
-        show()
-    }
+    // MARK: - Screen change observation
 
     private func observeScreenChanges() {
         NotificationCenter.default.addObserver(
@@ -347,7 +258,8 @@ final class OverlayWindowManager: ObservableObject {
     }
 
     @objc private func handleScreenChange() {
-        guard isVisible else { return }
-        syncOverlaysToScreens()
+        guard isVisible, let screen = screenContainingCursor() ?? NSScreen.main else { return }
+        moveWindow(to: screen)
+        activeScreen = screen
     }
 }

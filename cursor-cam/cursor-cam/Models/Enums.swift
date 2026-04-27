@@ -31,16 +31,17 @@ enum CameraShape: String, CaseIterable {
         let base = size.baseSize
         return switch self {
         case .circle, .roundedSquare: (base, base)
-        case .horizontal:             (base * 1.5, base * 0.80)
+        case .horizontal:             (base * 1.5, base * 0.95)
         case .vertical:               (base * 0.80, base * 1.15)
         }
     }
 
     func cornerRadius(for size: CameraSize) -> CGFloat {
+        let dims = dimensions(for: size)
         switch self {
-        case .circle:        return dimensions(for: size).width / 2
-        case .roundedSquare: return 8
-        case .horizontal, .vertical: return 6
+        case .circle:        return dims.width / 2
+        case .roundedSquare: return min(dims.width, dims.height) * 0.32
+        case .horizontal, .vertical: return min(dims.width, dims.height) * 0.22
         }
     }
 }

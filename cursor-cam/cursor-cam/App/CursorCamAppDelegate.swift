@@ -40,6 +40,7 @@ final class CursorCamAppDelegate: NSObject, NSApplicationDelegate {
             guard let overlay, let camera, let settings else { return }
             if overlay.isShowing {
                 overlay.hide()
+                camera.stopSession()
                 settings.isCamOn = false
             } else {
                 settings.isCamOn = true

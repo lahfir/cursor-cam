@@ -65,7 +65,7 @@ final class SettingsStore: ObservableObject {
     private let defaults = UserDefaults.standard
 
     init() {
-        self.positioningMode = Self.read(.positioningMode, default: .followCursor)
+        self.positioningMode = Self.read(.positioningMode, default: .pinToCorner)
         self.pinnedCorner = Self.read(.pinnedCorner, default: .bottomRight)
         self.cursorPosition = Self.read(.cursorPosition, default: .center)
         self.cameraShape = Self.read(.cameraShape, default: .circle)

@@ -2,9 +2,11 @@ import AppKit
 import SwiftUI
 import Combine
 
-/// Manages the settings panel presentation as a non-activating floating panel
-/// anchored to the menu bar status item. Uses NSPanel with .nonactivatingPanel
-/// so the user's current app retains focus while the panel supports keyboard navigation.
+/// Manages the settings panel as a non-activating floating panel anchored to
+/// the menu bar status item. Uses `NSPanel` with `.nonactivatingPanel` so the
+/// user's current app retains key focus while the panel still supports
+/// keyboard navigation. The panel is forced to the dark vibrant appearance
+/// to keep the studio aesthetic consistent across light/dark modes.
 @MainActor
 final class SettingsPopoverManager: NSObject {
     private var panel: NSPanel?
@@ -17,7 +19,9 @@ final class SettingsPopoverManager: NSObject {
     private let overlayManager: OverlayWindowManager
     private let permissionsManager: PermissionsManager
 
-    private let panelWidth: CGFloat = 400
+    private static let gapBelowMenuBar: CGFloat = 6
+    private static let screenMargin: CGFloat = 12
+    private static let defaultHeight: CGFloat = 560
 
     init(
         settings: SettingsStore,
@@ -33,28 +37,22 @@ final class SettingsPopoverManager: NSObject {
     }
 
     deinit {
-        Task { @MainActor in
-            removeClickOutsideMonitor()
-            removeKeyMonitor()
-        }
+        if let monitor = clickOutsideMonitor { NSEvent.removeMonitor(monitor) }
+        if let monitor = keyMonitor { NSEvent.removeMonitor(monitor) }
     }
 
     func attach(to statusItem: NSStatusItem) {
         self.statusItem = statusItem
     }
 
-    var isVisible: Bool {
-        panel?.isVisible ?? false
-    }
+    var isVisible: Bool { panel?.isVisible ?? false }
 
     func toggle() {
         isVisible ? hide() : show()
     }
 
     func show() {
-        if panel == nil {
-            createPanel()
-        }
+        if panel == nil { createPanel() }
         positionPanelBelowStatusItem()
         panel?.makeKeyAndOrderFront(nil)
         panel?.orderFrontRegardless()
@@ -68,7 +66,9 @@ final class SettingsPopoverManager: NSObject {
         removeKeyMonitor()
     }
 
-    // MARK: - Panel Lifecycle
+    // MARK: - Panel Construction
+
+    private var hostingView: NSHostingView<SettingsPanelView>?
 
     private func createPanel() {
         let settingsView = SettingsPanelView(
@@ -77,59 +77,80 @@ final class SettingsPopoverManager: NSObject {
             overlayManager: overlayManager,
             permissionsManager: permissionsManager
         )
-        .frame(width: panelWidth)
 
-        let hostingView = NSHostingView(rootView: settingsView)
-        hostingView.frame = NSRect(x: 0, y: 0, width: panelWidth, height: 500)
-        hostingView.wantsLayer = true
-        hostingView.layer?.backgroundColor = .clear
+        let hosting = NSHostingView(rootView: settingsView)
+        hosting.layer?.backgroundColor = .clear
+        self.hostingView = hosting
 
-        let settingsPanel = KeyablePanel(
-            contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: 500),
+        let frame = NSRect(x: 0, y: 0, width: Studio.panelWidth, height: Self.defaultHeight)
+        let panel = KeyablePanel(
+            contentRect: frame,
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
 
-        settingsPanel.isFloatingPanel = true
-        settingsPanel.level = .floating
-        settingsPanel.isOpaque = false
-        settingsPanel.backgroundColor = .clear
-        settingsPanel.hasShadow = true
-        settingsPanel.hidesOnDeactivate = false
-        settingsPanel.isExcludedFromWindowsMenu = true
-        settingsPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        settingsPanel.isMovableByWindowBackground = false
-        settingsPanel.titleVisibility = .hidden
-        settingsPanel.titlebarAppearsTransparent = true
-
-        settingsPanel.contentView = hostingView
-        panel = settingsPanel
+        configure(panel: panel)
+        panel.contentView = makeContainer(hosting: hosting, size: frame.size)
+        self.panel = panel
     }
+
+    private func configure(panel: NSPanel) {
+        panel.appearance = NSAppearance(named: .vibrantDark)
+        panel.isFloatingPanel = true
+        panel.level = .floating
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.hidesOnDeactivate = false
+        panel.isExcludedFromWindowsMenu = true
+        panel.isMovableByWindowBackground = false
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+    }
+
+    /// Wraps the SwiftUI hosting view inside an `NSVisualEffectView` so the
+    /// panel reads as a frosted-glass surface that adapts to the desktop
+    /// behind it. A rounded corner mask ties it together with `hasShadow`.
+    private func makeContainer(hosting: NSHostingView<SettingsPanelView>, size: NSSize) -> NSView {
+        let blur = NSVisualEffectView()
+        blur.material = .hudWindow
+        blur.blendingMode = .behindWindow
+        blur.state = .active
+        blur.wantsLayer = true
+        blur.layer?.cornerRadius = 14
+        blur.layer?.cornerCurve = .continuous
+        blur.layer?.masksToBounds = true
+        blur.frame = NSRect(origin: .zero, size: size)
+        blur.autoresizingMask = [.width, .height]
+
+        hosting.frame = blur.bounds
+        hosting.autoresizingMask = [.width, .height]
+        blur.addSubview(hosting)
+        return blur
+    }
+
+    // MARK: - Positioning
 
     private func positionPanelBelowStatusItem() {
         guard let panel else { return }
         guard let buttonWindow = statusItem?.button?.window else { return }
 
-        let statusItemFrame = buttonWindow.frame
-        let gapBelowMenuBar: CGFloat = 4
-        let screenMargin: CGFloat = 12
+        let statusFrame = buttonWindow.frame
+        let height = Self.defaultHeight
 
-        let fittingSize = panel.contentView?.fittingSize ?? CGSize(width: panelWidth, height: 500)
-        let actualHeight = fittingSize.height
+        var originX = statusFrame.midX - (Studio.panelWidth / 2)
+        let originY = statusFrame.minY - height - Self.gapBelowMenuBar
 
-        var panelOriginX = statusItemFrame.midX - (panelWidth / 2)
-        let panelOriginY = statusItemFrame.minY - actualHeight - gapBelowMenuBar
-
-        // Clamp to screen bounds so the panel never clips off the left or right edge
         if let screen = buttonWindow.screen {
             let screenFrame = screen.visibleFrame
-            panelOriginX = max(screenFrame.minX + screenMargin, panelOriginX)
-            panelOriginX = min(screenFrame.maxX - panelWidth - screenMargin, panelOriginX)
+            originX = max(screenFrame.minX + Self.screenMargin, originX)
+            originX = min(screenFrame.maxX - Studio.panelWidth - Self.screenMargin, originX)
         }
 
         panel.setFrame(
-            NSRect(x: panelOriginX, y: panelOriginY, width: panelWidth, height: actualHeight),
+            NSRect(x: originX, y: originY, width: Studio.panelWidth, height: height),
             display: true
         )
     }
@@ -138,18 +159,14 @@ final class SettingsPopoverManager: NSObject {
 
     private func installClickOutsideMonitor() {
         removeClickOutsideMonitor()
-
         clickOutsideMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
         ) { [weak self] _ in
             guard let self else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                guard self.panel?.isVisible == true else { return }
-                let clickLocation = NSEvent.mouseLocation
-                if let panelFrame = self.panel?.frame,
-                   !panelFrame.contains(clickLocation) {
-                    self.hide()
-                }
+                guard let panel = self.panel, panel.isVisible else { return }
+                let location = NSEvent.mouseLocation
+                if !panel.frame.contains(location) { self.hide() }
             }
         }
     }
@@ -180,10 +197,11 @@ final class SettingsPopoverManager: NSObject {
 
 // MARK: - Keyable Panel
 
-/// NSPanel subclass that can become key while using .nonactivatingPanel style,
-/// enabling keyboard navigation (Tab, Space, Enter, Escape) without activating
-/// the app in the Dock or stealing focus from the user's current app.
-private class KeyablePanel: NSPanel {
+/// `NSPanel` subclass that can become key while still using the
+/// `.nonactivatingPanel` style mask. This enables Tab / Space / Enter / Escape
+/// keyboard navigation inside the panel without ever stealing focus from the
+/// user's frontmost app.
+private final class KeyablePanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }
