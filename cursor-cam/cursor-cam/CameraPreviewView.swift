@@ -55,6 +55,12 @@ struct CameraPreviewView: View {
     @ViewBuilder
     private var camBubble: some View {
         ZStack {
+            // DEBUG: remove after confirming cam renders
+            Rectangle()
+                .fill(Color.red.opacity(0.3))
+                .frame(width: camWidth, height: camHeight)
+                .clipShape(camClipShape())
+
             Group {
                 switch cameraManager.cameraState {
                 case .running:
@@ -62,6 +68,10 @@ struct CameraPreviewView: View {
                         CameraPreviewLayerView(previewLayer: previewLayer)
                             .scaleEffect(x: settings.isMirrored ? -1 : 1, y: 1)
                             .clipShape(camClipShape())
+                    } else {
+                        Text("no layer")
+                            .font(.caption2)
+                            .foregroundColor(.white)
                     }
                 case .starting:
                     camPlaceholder(systemName: "circle.dotted", withMaterial: true)

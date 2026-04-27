@@ -45,17 +45,21 @@ final class OverlayWindowManager: ObservableObject {
     }
 
     func show() {
+        print("Overlay: show() called, isVisible=\(isVisible)")
         showIntent = true
-        guard !isVisible else { return }
+        guard !isVisible else { print("Overlay: already visible, returning"); return }
 
         hideOverlayWindows()
 
         let mouse = NSEvent.mouseLocation
-        let activeScreen = NSScreen.screens.first { $0.frame.contains(mouse) }
+        let screens = NSScreen.screens
+        let activeScreen = screens.first { $0.frame.contains(mouse) }
+        print("Overlay: screens=\(screens.count), mouse=\(mouse), activeScreen=\(activeScreen != nil ? "found" : "nil")")
+
         let ignores = settings.positioningMode != .freeDrag
         var initialStates: [ObjectIdentifier: ScreenCamState] = [:]
 
-        for screen in NSScreen.screens {
+        for screen in screens {
             let window = OverlayWindow(screen: screen)
             window.assignedScreen = screen
             window.ignoresMouseEvents = ignores
@@ -78,6 +82,7 @@ final class OverlayWindowManager: ObservableObject {
             if screen == activeScreen {
                 state.alpha = 1
                 state.position = computePosition(for: screen)
+                print("Overlay: active screen cam position=\(state.position)")
             } else {
                 state.alpha = 0
             }
@@ -90,6 +95,7 @@ final class OverlayWindowManager: ObservableObject {
 
         screenStates = initialStates
         isVisible = true
+        print("Overlay: show() complete, windows=\(overlayWindows.count), states=\(screenStates.count)")
         startPositioningLoop()
     }
 
