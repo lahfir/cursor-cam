@@ -56,9 +56,9 @@ extension CameraShape {
         case .circle, .roundedSquare:
             (base, base)
         case .horizontal:
-            (base, base * 0.56)
+            (base * 1.5, base * 0.65)
         case .vertical:
-            (base * 0.56, base)
+            (base * 0.65, base)
         }
     }
 

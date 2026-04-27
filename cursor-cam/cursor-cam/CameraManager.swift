@@ -38,12 +38,9 @@ final class CameraManager: ObservableObject {
         refreshAvailableCameras()
     }
 
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
+    deinit { NotificationCenter.default.removeObserver(self) }
 
     func startSession() {
-        print("CameraManager: startSession called, isSessionConfigured=\(isSessionConfigured)")
         guard !isSessionConfigured else { return }
         checkPermissionAndStart()
     }
@@ -65,55 +62,39 @@ final class CameraManager: ObservableObject {
     }
 
     private func checkPermissionAndStart() {
-        let status = AVCaptureDevice.authorizationStatus(for: .video)
-        print("CameraManager: permission status=\(status.rawValue)")
-        switch status {
-        case .authorized:
-            configureAndStartSession()
-        case .notDetermined:
-            cameraState = .notDetermined
-            print("CameraManager: permission not determined, waiting")
-        case .denied:
-            cameraState = .denied
-            print("CameraManager: permission denied")
-        case .restricted:
-            cameraState = .restricted
-        @unknown default:
-            cameraState = .unavailable
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:  configureAndStartSession()
+        case .notDetermined: cameraState = .notDetermined
+        case .denied:       cameraState = .denied
+        case .restricted:   cameraState = .restricted
+        @unknown default:   cameraState = .unavailable
         }
     }
 
     private func configureAndStartSession() {
-        print("CameraManager: configuring session...")
         let newSession = AVCaptureSession()
         newSession.sessionPreset = .medium
 
         guard selectFirstAvailableCamera(using: newSession) else {
             cameraState = .unavailable
-            print("CameraManager: no camera available")
             return
         }
 
         let layer = AVCaptureVideoPreviewLayer(session: newSession)
         layer.videoGravity = .resizeAspectFill
         previewLayer = layer
-        print("CameraManager: previewLayer created")
 
         session = newSession
         isSessionConfigured = true
         cameraState = .starting
-        print("CameraManager: session starting...")
-
         newSession.startRunning()
         cameraState = .running
-        print("CameraManager: session running")
     }
 
     @discardableResult
     private func selectFirstAvailableCamera(using session: AVCaptureSession? = nil) -> Bool {
         refreshAvailableCameras()
         let targetSession = session ?? self.session
-
         if let preferredID = settings.selectedCameraUniqueID,
            let device = availableCameras.first(where: { $0.uniqueID == preferredID }) {
             return addInput(device: device, to: targetSession)
@@ -137,7 +118,7 @@ final class CameraManager: ObservableObject {
             settings.selectedCameraUniqueID = device.uniqueID
             return true
         } catch {
-            print("CameraManager: Failed to create input for \(device.localizedName): \(error)")
+            print("CameraManager: failed to create input: \(error.localizedDescription)")
             return false
         }
     }
@@ -160,13 +141,12 @@ final class CameraManager: ObservableObject {
 
     @objc private func handleDeviceConnected(_ notification: Notification) {
         refreshAvailableCameras()
-        guard let device = notification.object as? AVCaptureDevice else { return }
-        if let selectedID = settings.selectedCameraUniqueID,
-           device.uniqueID == selectedID, cameraState == .disconnected {
-            switchToDevice(device)
-            session?.startRunning()
-            cameraState = .running
-        }
+        guard let device = notification.object as? AVCaptureDevice,
+              let selectedID = settings.selectedCameraUniqueID,
+              device.uniqueID == selectedID, cameraState == .disconnected else { return }
+        switchToDevice(device)
+        session?.startRunning()
+        cameraState = .running
     }
 
     @objc private func handleDeviceDisconnected(_ notification: Notification) {
@@ -176,7 +156,6 @@ final class CameraManager: ObservableObject {
         reconnectTask?.cancel()
         reconnectTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(Self.reconnectGracePeriod))
-            guard let self, self.cameraState == .disconnected else { return }
         }
     }
 

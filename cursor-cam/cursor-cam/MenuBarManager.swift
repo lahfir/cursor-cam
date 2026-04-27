@@ -29,11 +29,9 @@ final class MenuBarManager {
     }
 
     func show() {
-        print("CursorCam: Creating menu bar status item...")
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         updateIcon()
         buildMenu()
-        print("CursorCam: Menu bar ready. Icon visible in menu bar (top-right).")
     }
 
     func openMenu() {
