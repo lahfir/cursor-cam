@@ -24,7 +24,7 @@ final class OverlayWindowManager: ObservableObject {
     private static let screenSwitchDebounce: TimeInterval = 0.15
 
     private var lastScreenSwitchTime: Date = .distantPast
-    private var previousActiveScreen: NSScreen?
+    private var previousActiveFrame: CGRect?
 
     @Published private(set) var screenStates: [ObjectIdentifier: ScreenCamState] = [:]
 
@@ -53,8 +53,11 @@ final class OverlayWindowManager: ObservableObject {
 
         let mouse = NSEvent.mouseLocation
         let screens = NSScreen.screens
+        print("Overlay: screens=\(screens.count), mouse=\(mouse)")
+        for s in screens { print("  screen frame=\(s.frame)") }
+
         let activeScreen = screens.first { $0.frame.contains(mouse) }
-        print("Overlay: screens=\(screens.count), mouse=\(mouse), activeScreen=\(activeScreen != nil ? "found" : "nil")")
+        print("Overlay: activeScreen frame=\(activeScreen?.frame ?? .zero)")
 
         let ignores = settings.positioningMode != .freeDrag
         var initialStates: [ObjectIdentifier: ScreenCamState] = [:]
@@ -79,10 +82,10 @@ final class OverlayWindowManager: ObservableObject {
             let id = ObjectIdentifier(screen)
             var state = ScreenCamState()
 
-            if screen == activeScreen {
+            if screen.frame.contains(mouse) {
                 state.alpha = 1
                 state.position = computePosition(for: screen)
-                print("Overlay: active screen cam position=\(state.position)")
+                print("Overlay: cam on screen \(screen.frame), position=\(state.position)")
             } else {
                 state.alpha = 0
             }
@@ -95,7 +98,7 @@ final class OverlayWindowManager: ObservableObject {
 
         screenStates = initialStates
         isVisible = true
-        print("Overlay: show() complete, windows=\(overlayWindows.count), states=\(screenStates.count)")
+        print("Overlay: show() complete, windows=\(overlayWindows.count)")
         startPositioningLoop()
     }
 
@@ -276,63 +279,60 @@ final class OverlayWindowManager: ObservableObject {
     }
 
     private func tickFollowCursor(mouseLocation: CGPoint) {
-        let activeScreen = NSScreen.screens.first { $0.frame.contains(mouseLocation) }
+        let activeFrame = NSScreen.screens.first { $0.frame.contains(mouseLocation) }?.frame
 
-        // Debounce screen switches to prevent flicker on edge bouncing
-        if activeScreen != previousActiveScreen {
+        if activeFrame != previousActiveFrame {
             let now = Date()
             if now.timeIntervalSince(lastScreenSwitchTime) < Self.screenSwitchDebounce {
                 return
             }
             lastScreenSwitchTime = now
-            previousActiveScreen = activeScreen
+            previousActiveFrame = activeFrame
         }
 
         var newStates = screenStates
 
-        if activeScreen == nil {
-            for id in newStates.keys {
-                newStates[id]?.alpha = 0
-            }
-        } else {
-            for (id, var state) in newStates {
-                guard let screen = NSScreen.screens.first(where: { ObjectIdentifier($0) == id }) else { continue }
+        guard let activeFrame else {
+            for id in newStates.keys { newStates[id]?.alpha = 0 }
+            screenStates = newStates
+            return
+        }
 
-                if ObjectIdentifier(activeScreen!) == id {
-                    state.alpha = 1
-                    state.position = camPosition(for: screen)
-                } else {
-                    state.alpha = 0
-                }
+        for (id, var state) in newStates {
+            guard let screen = NSScreen.screens.first(where: { ObjectIdentifier($0) == id }) else { continue }
 
-                newStates[id] = state
+            if screen.frame == activeFrame {
+                state.alpha = 1
+                state.position = camPosition(for: screen)
+            } else {
+                state.alpha = 0
             }
+            newStates[id] = state
         }
 
         screenStates = newStates
     }
 
     private func tickPinToCorner(mouseLocation: CGPoint) {
-        let activeScreen = NSScreen.screens.first { $0.frame.contains(mouseLocation) }
+        let activeFrame = NSScreen.screens.first { $0.frame.contains(mouseLocation) }?.frame
         var newStates = screenStates
+
+        guard let activeFrame else {
+            for id in newStates.keys { newStates[id]?.alpha = 0 }
+            screenStates = newStates
+            return
+        }
 
         for (id, var state) in newStates {
             guard let screen = NSScreen.screens.first(where: { ObjectIdentifier($0) == id }) else { continue }
 
-            if activeScreen != nil && ObjectIdentifier(activeScreen!) == id {
+            if screen.frame == activeFrame {
                 state.alpha = 1
                 state.position = cornerPosition(for: settings.pinnedCorner, screen: screen)
             } else {
                 state.alpha = 0
             }
-
             newStates[id] = state
-        }
-
-        if activeScreen == nil {
-            for id in newStates.keys {
-                newStates[id]?.alpha = 0
-            }
         }
 
         screenStates = newStates
@@ -346,11 +346,9 @@ final class OverlayWindowManager: ObservableObject {
                 settings.freeDragPosition = pos
                 var newStates = screenStates
                 for (id, var state) in newStates {
-                    state.alpha = 0
-                    if id == ObjectIdentifier(screen) {
-                        state.alpha = 1
-                        state.position = pos
-                    }
+                    guard let s = NSScreen.screens.first(where: { ObjectIdentifier($0) == id }) else { continue }
+                    state.alpha = s.frame == screen.frame ? 1 : 0
+                    if state.alpha == 1 { state.position = pos }
                     newStates[id] = state
                 }
                 screenStates = newStates
@@ -358,26 +356,18 @@ final class OverlayWindowManager: ObservableObject {
             return
         }
 
-        let targetScreen = NSScreen.screens.first { $0.frame.contains(freePos) }
+        let targetFrame = NSScreen.screens.first { $0.frame.contains(freePos) }?.frame
         var newStates = screenStates
 
         for (id, var state) in newStates {
-            guard NSScreen.screens.contains(where: { ObjectIdentifier($0) == id }) else { continue }
-
-            if targetScreen != nil && ObjectIdentifier(targetScreen!) == id {
-                state.alpha = 1
-                state.position = freePos
-            } else {
-                state.alpha = 0
-            }
-
+            guard let screen = NSScreen.screens.first(where: { ObjectIdentifier($0) == id }) else { continue }
+            state.alpha = (targetFrame != nil && screen.frame == targetFrame!) ? 1 : 0
+            if state.alpha == 1 { state.position = freePos }
             newStates[id] = state
         }
 
-        if targetScreen == nil {
-            for id in newStates.keys {
-                newStates[id]?.alpha = 0
-            }
+        if targetFrame == nil {
+            for id in newStates.keys { newStates[id]?.alpha = 0 }
         }
 
         screenStates = newStates
