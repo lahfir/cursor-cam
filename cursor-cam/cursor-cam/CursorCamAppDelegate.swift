@@ -46,8 +46,17 @@ final class CursorCamAppDelegate: NSObject, NSApplicationDelegate {
         }
 
         menuBar.show()
-        permissions.requestOnFirstLaunch()
         hotkey.start()
+
+        if permissions.needsOnboarding {
+            permissions.requestOnFirstLaunch()
+        } else {
+            permissions.refreshPermissions()
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            menuBar.openMenu()
+        }
 
         observePermissions(permissions, camera: camera, overlay: overlay, settings: settings)
         observeSystemNotifications()

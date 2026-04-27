@@ -29,9 +29,15 @@ final class MenuBarManager {
     }
 
     func show() {
+        print("CursorCam: Creating menu bar status item...")
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         updateIcon()
         buildMenu()
+        print("CursorCam: Menu bar ready. Icon visible in menu bar (top-right).")
+    }
+
+    func openMenu() {
+        statusItem?.button?.performClick(nil)
     }
 
     func updateIcon() {
@@ -49,7 +55,35 @@ final class MenuBarManager {
         if let image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil) {
             image.isTemplate = true
             button.image = image
+        } else {
+            button.image = makeFallbackIcon()
         }
+
+        button.toolTip = "Cursor-Cam"
+    }
+
+    private func makeFallbackIcon() -> NSImage {
+        let size: CGFloat = 18
+        let image = NSImage(size: NSSize(width: size, height: size))
+        image.lockFocus()
+
+        let rect = NSRect(x: 2, y: 2, width: 14, height: 14)
+        let path = NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4)
+
+        let body: NSRect
+        if rect.width > 10 {
+            body = NSRect(x: 2, y: 4, width: 10, height: 7)
+        } else {
+            body = rect
+        }
+
+        NSColor.black.setStroke()
+        path.lineWidth = 1.5
+        path.stroke()
+
+        image.unlockFocus()
+        image.isTemplate = true
+        return image
     }
 
     func buildMenu() {
