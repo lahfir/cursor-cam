@@ -49,16 +49,31 @@ Build with Xcode 16+ (macOS 15 SDK). Target: `cursor-cam`. The app is not sandbo
 
 ```
 cursor-cam/
-├── CursorCamAppDelegate.swift   # App lifecycle, manager wiring, permission observation
-├── SettingsStore.swift          # UserDefaults persistence for all preferences
-├── CameraManager.swift          # AVCaptureSession, device discovery, hot-plug
-├── CameraPreviewView.swift      # SwiftUI view: preview layer, shapes, borders, glow
-├── OverlayWindowManager.swift   # Per-screen borderless NSWindow, positioning engine
-├── MenuBarManager.swift         # NSStatusItem, dropdown menu, all settings UI
-├── HotkeyMonitor.swift          # CGEvent tap for ⌃⌥C global hotkey
-├── PermissionsManager.swift     # Camera + Accessibility permission flows
-├── AudioLevelMonitor.swift      # AVAudioEngine mic tap for glow reactivity
-└── CursorCam.entitlements       # Non-sandboxed, camera + audio input
+├── App/
+│   ├── CursorCamApp.swift           # @main entry point
+│   └── CursorCamAppDelegate.swift    # Lifecycle, manager wiring
+├── Models/
+│   ├── Enums.swift                   # All enums (shape, size, mode, etc.)
+│   └── SettingsStore.swift           # UserDefaults persistence
+├── Services/
+│   ├── CameraManager.swift           # AVCaptureSession, device discovery
+│   ├── HotkeyMonitor.swift           # CGEvent tap for ⌃⌥C
+│   └── PermissionsManager.swift      # Camera + Accessibility flows
+├── Overlay/
+│   ├── OverlayWindow.swift           # NSWindow subclass per display
+│   └── OverlayWindowManager.swift    # Per-screen lifecycle, positioning
+├── MenuBar/
+│   └── MenuBarManager.swift          # NSStatusItem + dropdown menu
+├── Views/
+│   └── CameraPreviewView.swift       # SwiftUI view: preview, shapes, borders
+├── Resources/
+│   ├── Assets.xcassets/              # App icon
+│   └── CursorCam.entitlements        # Non-sandboxed, camera access
+└── cursor-camTests/
+    ├── Models/SettingsStoreTests.swift
+    ├── Overlay/OverlayWindowManagerTests.swift
+    ├── Overlay/PositioningModeTests.swift
+    └── Services/CameraManagerTests.swift
 ```
 
 ## Architecture
