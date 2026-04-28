@@ -98,13 +98,13 @@ struct CameraPreviewView: View {
             }
         }
 
-        // Squish: cam compresses then springs back, gives kinetic feedback
+        // Subtle scale-up pulse: cam blooms slightly bigger then springs back
         guard !reduceMotion else { return }
-        withAnimation(.spring(response: 0.14, dampingFraction: 0.5)) {
-            clickPulse = 0.92
+        withAnimation(.spring(response: 0.16, dampingFraction: 0.55)) {
+            clickPulse = 1.05
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.55)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.6)) {
                 clickPulse = 1.0
             }
         }
