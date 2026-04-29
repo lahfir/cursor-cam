@@ -22,16 +22,13 @@ struct CamSegmented<T: Hashable>: View {
         return ZStack {
             if selected {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(Color.accentColor.opacity(0.18))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 11, style: .continuous)
-                            .stroke(Color.accentColor.opacity(0.4), lineWidth: 0.5)
-                    )
+                    .fill(Color.accentColor)
+                    .shadow(color: Color.accentColor.opacity(0.35), radius: 6, x: 0, y: 1)
                     .matchedGeometryEffect(id: "pill", in: ns)
             }
             Text(label)
                 .font(.system(size: 11, weight: selected ? .semibold : .regular))
-                .foregroundStyle(selected ? Color.accentColor : Studio.textPrimary.opacity(0.55))
+                .foregroundStyle(selected ? Color.white : Studio.textPrimary.opacity(0.55))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
