@@ -309,7 +309,14 @@ final class OverlayWindowManager: ObservableObject {
         switch settings.positioningMode {
         case .followCursor: return camPosition(for: screen)
         case .pinToCorner:  return cornerPosition(for: settings.pinnedCorner, screen: screen)
-        case .freeDrag:     return settings.freeDragPosition ?? camPosition(for: screen)
+        case .freeDrag:
+            // First time entering drag mode: snapshot current camera position
+            // and lock it. Without this snapshot, computePosition falls back
+            // to camPosition(for:) every tick — which IS the cursor follow.
+            if let pos = settings.freeDragPosition { return pos }
+            let snapshot = cornerPosition(for: settings.pinnedCorner, screen: screen)
+            settings.freeDragPosition = snapshot
+            return snapshot
         }
     }
 
