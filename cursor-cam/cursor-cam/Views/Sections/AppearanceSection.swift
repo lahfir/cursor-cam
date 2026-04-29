@@ -4,16 +4,17 @@ struct AppearanceSection: View {
     @ObservedObject var settings: SettingsStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Studio.rowGap) {
-            Studio.sectionLabel("APPEARANCE")
-            shapeRow
-            sizeAndMirror
-            opacityRow
-            shadowRow
-            borderRow
-            if settings.borderStyle != .none { borderWidthRow }
+        StudioCard(title: "APPEARANCE") {
+            VStack(alignment: .leading, spacing: Studio.rowGap) {
+                shapeRow
+                sizeAndMirror
+                opacityRow
+                shadowRow
+                borderRow
+                if settings.borderStyle != .none { borderWidthRow }
+            }
+            .animation(.spring(response: 0.28, dampingFraction: 0.85), value: settings.borderStyle)
         }
-        .animation(.spring(response: 0.28, dampingFraction: 0.85), value: settings.borderStyle)
     }
 
     private var shapeRow: some View {

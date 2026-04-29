@@ -5,8 +5,7 @@ struct CameraSection: View {
     @ObservedObject var cameraManager: CameraManager
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Studio.rowGap) {
-            Studio.sectionLabel("CAMERA")
+        StudioCard(title: "CAMERA") {
             if cameraManager.availableCameras.isEmpty {
                 EmptyCameraRow()
             } else {

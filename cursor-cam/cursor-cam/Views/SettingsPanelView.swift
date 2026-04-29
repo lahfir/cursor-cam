@@ -9,22 +9,19 @@ struct SettingsPanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: Studio.sectionGap) {
+                VStack(alignment: .leading, spacing: 12) {
                     PanelHeader(
                         settings: settings,
                         cameraManager: cameraManager,
                         overlayManager: overlayManager
                     )
-                    StudioHairline()
+                    .padding(.bottom, 4)
                     AppearanceSection(settings: settings)
-                    StudioHairline()
                     PositioningSection(settings: settings)
-                    StudioHairline()
                     BehaviorSection(
                         settings: settings,
                         permissionsManager: permissionsManager
                     )
-                    StudioHairline()
                     CameraSection(cameraManager: cameraManager)
                 }
                 .padding(.horizontal, Studio.sidePadding)

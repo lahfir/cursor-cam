@@ -4,13 +4,14 @@ struct PositioningSection: View {
     @ObservedObject var settings: SettingsStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Studio.rowGap) {
-            Studio.sectionLabel("POSITIONING")
-            modeRow
-            if settings.positioningMode == .pinToCorner { cornerRow }
-            if settings.positioningMode == .followCursor { offsetRow }
+        StudioCard(title: "POSITIONING") {
+            VStack(alignment: .leading, spacing: Studio.rowGap) {
+                modeRow
+                if settings.positioningMode == .pinToCorner { cornerRow }
+                if settings.positioningMode == .followCursor { offsetRow }
+            }
+            .animation(.spring(response: 0.32, dampingFraction: 0.85), value: settings.positioningMode)
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.85), value: settings.positioningMode)
     }
 
     private var modeRow: some View {
