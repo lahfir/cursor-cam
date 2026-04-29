@@ -11,22 +11,18 @@ final class CamBehaviorController: ObservableObject {
 
     private let settings: SettingsStore
 
-    // MARK: - Velocity Tracking
     private var cursorSampleBuffer: [(point: CGPoint, time: Date)] = []
     private static let velocitySampleCount = 6
     private static let velocityMin: CGFloat = 300
     private static let velocityMax: CGFloat = 1400
     private static let maxScaleMultiplier: CGFloat = 1.22
 
-    // MARK: - Idle Dimming
     private var lastCursorMoveTime: Date = .distantPast
     private var isIdleDimmed = false
 
     init(settings: SettingsStore) {
         self.settings = settings
     }
-
-    // MARK: - Tick
 
     func tick(mouseLocation: CGPoint) {
         updateVelocityTracking(mouseLocation: mouseLocation)
@@ -39,8 +35,6 @@ final class CamBehaviorController: ObservableObject {
         cursorSampleBuffer.removeAll()
         isIdleDimmed = false
     }
-
-    // MARK: - Velocity
 
     private func updateVelocityTracking(mouseLocation: CGPoint) {
         let now = Date()
@@ -87,8 +81,6 @@ final class CamBehaviorController: ObservableObject {
         let t = (velocity - Self.velocityMin) / (Self.velocityMax - Self.velocityMin)
         return 1.0 + t * (Self.maxScaleMultiplier - 1.0)
     }
-
-    // MARK: - Idle Dimming
 
     private func updateIdleDimming(mouseLocation: CGPoint) {
         let now = Date()

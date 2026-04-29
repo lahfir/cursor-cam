@@ -80,8 +80,6 @@ final class MenuBarManager {
         return image
     }
 
-    // MARK: - Actions
-
     @objc private func statusItemClicked() {
         popoverManager.toggle()
     }

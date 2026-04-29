@@ -66,8 +66,6 @@ final class SettingsPopoverManager: NSObject {
         removeKeyMonitor()
     }
 
-    // MARK: - Panel Construction
-
     private var hostingView: NSHostingView<SettingsPanelView>?
 
     private func createPanel() {
@@ -131,8 +129,6 @@ final class SettingsPopoverManager: NSObject {
         return blur
     }
 
-    // MARK: - Positioning
-
     private func positionPanelBelowStatusItem() {
         guard let panel else { return }
         guard let buttonWindow = statusItem?.button?.window else { return }
@@ -154,8 +150,6 @@ final class SettingsPopoverManager: NSObject {
             display: true
         )
     }
-
-    // MARK: - Dismissal
 
     private func installClickOutsideMonitor() {
         removeClickOutsideMonitor()
@@ -194,8 +188,6 @@ final class SettingsPopoverManager: NSObject {
         }
     }
 }
-
-// MARK: - Keyable Panel
 
 /// `NSPanel` subclass that can become key while still using the
 /// `.nonactivatingPanel` style mask. This enables Tab / Space / Enter / Escape

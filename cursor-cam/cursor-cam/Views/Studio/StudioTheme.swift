@@ -10,7 +10,6 @@ enum Studio {
     static let sectionGap: CGFloat = 18
     static let rowGap: CGFloat = 10
 
-    // Color tokens (panel forces dark vibrant appearance for consistency)
     static let textPrimary = Color.white.opacity(0.92)
     static let textMuted = Color.white.opacity(0.45)
     static let textBody = Color.white.opacity(0.7)
@@ -19,7 +18,6 @@ enum Studio {
     static let chipStroke = Color.white.opacity(0.08)
     static let liveRed = Color(red: 0.96, green: 0.32, blue: 0.34)
 
-    // Typography
     static func sectionLabel(_ s: String) -> some View {
         Text(s)
             .font(.system(size: 10, weight: .semibold, design: .monospaced))

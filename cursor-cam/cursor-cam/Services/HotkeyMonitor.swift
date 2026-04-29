@@ -98,7 +98,6 @@ final class HotkeyMonitor {
         let flags = event.flags
         let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
 
-        // ⌃⌥C — keyCode 8 is 'c' key
         let isControlOptionC = keyCode == 8
             && flags.contains(.maskControl)
             && flags.contains(.maskAlternate)

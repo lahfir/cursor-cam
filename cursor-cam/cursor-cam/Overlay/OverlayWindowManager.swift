@@ -48,8 +48,6 @@ final class OverlayWindowManager: ObservableObject {
 
     var isShowing: Bool { isVisible }
 
-    // MARK: - Lifecycle
-
     func show() {
         showIntent = true
         guard !isVisible else { return }
@@ -68,7 +66,6 @@ final class OverlayWindowManager: ObservableObject {
         window.ignoresMouseEvents = settings.positioningMode != .freeDrag
         window.orderFrontRegardless()
 
-        // Fade in to match fade-out feel on toggle
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.35
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
@@ -124,8 +121,6 @@ final class OverlayWindowManager: ObservableObject {
         camState.position = position
     }
 
-    // MARK: - Position math
-
     func camPosition(for screen: NSScreen) -> CGPoint {
         let mouse = NSEvent.mouseLocation
         let base = convertToSwiftUICoordinates(mouse, screen: screen)
@@ -155,14 +150,13 @@ final class OverlayWindowManager: ObservableObject {
         let edgeBandY = frame.height * 0.22
 
         let relX = mouse.x - frame.minX
-        let relY = mouse.y - frame.minY  // Cocoa: 0 = bottom
+        let relY = mouse.y - frame.minY
 
         let isLeft = relX < edgeBandX
         let isRight = relX > frame.width - edgeBandX
         let isTopCocoa = relY > frame.height - edgeBandY
         let isBottomCocoa = relY < edgeBandY
 
-        // SwiftUI y+ goes down. Cursor near top of screen (Cocoa high y) → cam below cursor (SwiftUI +y).
         var dy: CGFloat = 0
         if isTopCocoa { dy = +1 }
         else if isBottomCocoa { dy = -1 }
@@ -216,8 +210,6 @@ final class OverlayWindowManager: ObservableObject {
         }
     }
 
-    // MARK: - Window construction
-
     private func buildWindow() -> OverlayWindow {
         let window = OverlayWindow()
         let preview = CameraPreviewView(
@@ -237,8 +229,6 @@ final class OverlayWindowManager: ObservableObject {
     private func moveWindow(to screen: NSScreen) {
         overlay?.setFrame(screen.frame, display: true)
     }
-
-    // MARK: - Position loop
 
     private func startPositioningLoop() {
         cursorTrackingTimer?.invalidate()
@@ -272,7 +262,6 @@ final class OverlayWindowManager: ObservableObject {
         case .followCursor, .pinToCorner:
             return NSScreen.screens.first { $0.frame.contains(mouse) }
         case .freeDrag:
-            // Drag mode locks to the screen the cam was last placed on.
             return activeScreen ?? NSScreen.screens.first { $0.frame.contains(mouse) }
         }
     }
@@ -284,19 +273,21 @@ final class OverlayWindowManager: ObservableObject {
         isHandingOff = true
 
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.18
+            context.duration = 0.16
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             window.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
             guard let self else { return }
             window.setFrame(screen.frame, display: true)
             self.activeScreen = screen
-            self.camState = CamState(
-                position: self.computePosition(for: screen),
-                alpha: 1
-            )
+            withTransaction(Transaction(animation: nil)) {
+                self.camState = CamState(
+                    position: self.computePosition(for: screen),
+                    alpha: 1
+                )
+            }
             NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.22
+                context.duration = 0.20
                 context.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 window.animator().alphaValue = 1
             }, completionHandler: { [weak self] in
@@ -310,9 +301,6 @@ final class OverlayWindowManager: ObservableObject {
         case .followCursor: return camPosition(for: screen)
         case .pinToCorner:  return cornerPosition(for: settings.pinnedCorner, screen: screen)
         case .freeDrag:
-            // First time entering drag mode: snapshot current camera position
-            // and lock it. Without this snapshot, computePosition falls back
-            // to camPosition(for:) every tick — which IS the cursor follow.
             if let pos = settings.freeDragPosition { return pos }
             let snapshot = cornerPosition(for: settings.pinnedCorner, screen: screen)
             settings.freeDragPosition = snapshot
@@ -325,8 +313,6 @@ final class OverlayWindowManager: ObservableObject {
         let y = (screen.frame.origin.y + screen.frame.height) - point.y
         return CGPoint(x: x, y: y)
     }
-
-    // MARK: - Screen change observation
 
     private func observeScreenChanges() {
         NotificationCenter.default.addObserver(

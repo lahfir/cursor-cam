@@ -35,8 +35,6 @@ struct PanelPreviewView: View {
         }
     }
 
-    // MARK: - Sub-views
-
     private var glow: some View {
         clipShape
             .fill(Color.accentColor.opacity(0.18))
@@ -93,8 +91,6 @@ struct PanelPreviewView: View {
         }
     }
 
-    // MARK: - Shape helpers
-
     private var clipShape: AnyShape {
         switch settings.cameraShape {
         case .circle:        return AnyShape(Circle())
@@ -111,8 +107,6 @@ struct PanelPreviewView: View {
         case .vertical:               return 1.0 / 1.25
         }
     }
-
-    // MARK: - Layer lifecycle
 
     private func createLayer() {
         guard panelLayer == nil else { return }

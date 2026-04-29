@@ -59,8 +59,6 @@ struct CameraPreviewView: View {
         }
     }
 
-    // MARK: - Click Feedback (squish + bloom)
-
     @ViewBuilder
     private var clickBloom: some View {
         clipShape
@@ -86,7 +84,6 @@ struct CameraPreviewView: View {
         guard settings.clickFeedbackEnabled else { return }
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 
-        // Bloom: brief accent halo expanding behind the cam
         bloomScale = 1.0
         bloomOpacity = 0.75
         if reduceMotion {
@@ -98,7 +95,6 @@ struct CameraPreviewView: View {
             }
         }
 
-        // Subtle scale-up pulse: cam blooms slightly bigger then springs back
         guard !reduceMotion else { return }
         withAnimation(.spring(response: 0.16, dampingFraction: 0.55)) {
             clickPulse = 1.05
@@ -109,8 +105,6 @@ struct CameraPreviewView: View {
             }
         }
     }
-
-    // MARK: - Content
 
     @ViewBuilder
     private var camContent: some View {
@@ -139,8 +133,6 @@ struct CameraPreviewView: View {
             }
     }
 
-    // MARK: - Shape
-
     private var clipShape: AnyShape {
         switch settings.cameraShape {
         case .circle:         return AnyShape(Circle())
@@ -149,8 +141,6 @@ struct CameraPreviewView: View {
         case .vertical:       return AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
     }
-
-    // MARK: - Border
 
     @ViewBuilder
     private var border: some View {
@@ -167,8 +157,6 @@ struct CameraPreviewView: View {
         }
     }
 
-    // MARK: - Drag
-
     private var freeDragMode: Bool { settings.positioningMode == .freeDrag }
 
     private var drag: some Gesture {
@@ -184,11 +172,7 @@ struct CameraPreviewView: View {
             }
     }
 
-    // MARK: - Animation
-
     private var springOrNil: Animation? {
-        // Subtle, micro-glide spring — high damping, longer response so the
-        // cam never reads as "snapping" between positions.
         freeDragMode ? nil : .spring(response: 0.42, dampingFraction: 0.88, blendDuration: 0)
     }
 
@@ -201,8 +185,6 @@ struct CameraPreviewView: View {
         return .easeInOut(duration: dimming ? 0.55 : 0.20)
     }
 }
-
-// MARK: - Preview Layer Bridge
 
 struct CameraPreviewLayerView: NSViewRepresentable {
     let previewLayer: AVCaptureVideoPreviewLayer
@@ -251,8 +233,6 @@ final class CameraPreviewNSView: NSView {
         layingOut = false
     }
 }
-
-// MARK: - Shape Eraser
 
 struct AnyShape: Shape, @unchecked Sendable {
     private let path: @Sendable (CGRect) -> Path
