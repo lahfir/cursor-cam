@@ -1,6 +1,6 @@
 # Cursor-Cam
 
-![Cursor-Cam in action](assets/Tutorial.gif)
+<video src="assets/Tutorial.mp4" autoplay loop muted playsinline width="100%"></video>
 
 A tiny floating camera overlay for macOS that follows your cursor. Any screen recorder captures it natively — no plugins, no virtual cameras, no setup.
 
