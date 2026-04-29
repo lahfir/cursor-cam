@@ -6,18 +6,16 @@ struct CameraPreviewView: View {
     @ObservedObject var settings: SettingsStore
     @ObservedObject var overlayManager: OverlayWindowManager
 
+    @StateObject private var click = ClickFeedbackState()
     @State private var dragOffset: CGSize = .zero
-    @State private var clickPulse: CGFloat = 1.0
-    @State private var bloomScale: CGFloat = 1.0
-    @State private var bloomOpacity: Double = 0.0
 
     private var state: CamState { overlayManager.camState }
-
     private var camWidth: CGFloat  { settings.cameraShape.dimensions(for: settings.cameraSize).width }
     private var camHeight: CGFloat { settings.cameraShape.dimensions(for: settings.cameraSize).height }
     private var cornerRadius: CGFloat { settings.cameraShape.cornerRadius(for: settings.cameraSize) }
+    private var freeDragMode: Bool { settings.positioningMode == .freeDrag }
 
-    var finalOpacity: Double {
+    private var finalOpacity: Double {
         Double(state.alpha) * settings.baseOpacity * Double(overlayManager.idleDimMultiplier)
     }
 
@@ -25,85 +23,43 @@ struct CameraPreviewView: View {
         GeometryReader { geo in
             ZStack {
                 Color.black.opacity(0.001)
-
                 if settings.clickFeedbackEnabled {
-                    clickBloom
-                        .position(x: state.position.x + dragOffset.width,
-                                  y: state.position.y + dragOffset.height)
+                    ClickBloomView(state: click, shape: clipShape, camWidth: camWidth, camHeight: camHeight)
+                        .position(camPositionWithDrag)
                 }
-
-                camContent
-                    .frame(width: camWidth, height: camHeight)
-                    .scaleEffect(overlayManager.velocityScale * clickPulse)
-                    .shadow(
-                        color: .black.opacity(settings.shadowEnabled ? settings.shadowIntensity.shadowOpacity : 0),
-                        radius: settings.shadowEnabled ? settings.shadowIntensity.shadowRadius : 0,
-                        x: 0, y: settings.shadowEnabled ? settings.shadowIntensity.shadowOffset : 0
-                    )
-                    .clipShape(clipShape)
-                    .overlay { border }
-                    .position(x: state.position.x + dragOffset.width,
-                              y: state.position.y + dragOffset.height)
-                    .animation(springOrNil, value: state.position)
-                    .animation(.easeInOut(duration: 0.25), value: state.alpha)
-                    .animation(.spring(response: 0.38, dampingFraction: 0.85, blendDuration: 0), value: overlayManager.velocityScale)
-                    .opacity(finalOpacity)
-                    .animation(dimAnimation, value: finalOpacity)
+                cam
+                    .position(camPositionWithDrag)
                     .gesture(freeDragMode ? drag : nil)
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
         .ignoresSafeArea()
         .onReceive(NotificationCenter.default.publisher(for: .cursorCamClickFeedback)) { _ in
-            triggerClickFeedback()
+            guard settings.clickFeedbackEnabled else { return }
+            click.fire()
         }
     }
 
-    @ViewBuilder
-    private var clickBloom: some View {
-        clipShape
-            .fill(RadialGradient(
-                colors: [
-                    Color.accentColor.opacity(0.85),
-                    Color.accentColor.opacity(0.45),
-                    Color.accentColor.opacity(0)
-                ],
-                center: .center,
-                startRadius: 2,
-                endRadius: max(camWidth, camHeight) * 0.7
-            ))
-            .frame(width: camWidth * 1.45, height: camHeight * 1.45)
-            .scaleEffect(bloomScale)
-            .opacity(bloomOpacity)
-            .blur(radius: 10)
-            .blendMode(.plusLighter)
-            .allowsHitTesting(false)
+    private var camPositionWithDrag: CGPoint {
+        CGPoint(x: state.position.x + dragOffset.width, y: state.position.y + dragOffset.height)
     }
 
-    func triggerClickFeedback() {
-        guard settings.clickFeedbackEnabled else { return }
-        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-
-        bloomScale = 1.0
-        bloomOpacity = 0.75
-        if reduceMotion {
-            withAnimation(.easeOut(duration: 0.18)) { bloomOpacity = 0 }
-        } else {
-            withAnimation(.easeOut(duration: 0.45)) {
-                bloomScale = 1.55
-                bloomOpacity = 0
-            }
-        }
-
-        guard !reduceMotion else { return }
-        withAnimation(.spring(response: 0.16, dampingFraction: 0.55)) {
-            clickPulse = 1.05
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.6)) {
-                clickPulse = 1.0
-            }
-        }
+    private var cam: some View {
+        camContent
+            .frame(width: camWidth, height: camHeight)
+            .scaleEffect(overlayManager.velocityScale * click.pulse)
+            .shadow(
+                color: .black.opacity(settings.shadowEnabled ? settings.shadowIntensity.shadowOpacity : 0),
+                radius: settings.shadowEnabled ? settings.shadowIntensity.shadowRadius : 0,
+                x: 0, y: settings.shadowEnabled ? settings.shadowIntensity.shadowOffset : 0
+            )
+            .clipShape(clipShape)
+            .overlay { border }
+            .animation(positionSpring, value: state.position)
+            .animation(.easeInOut(duration: 0.25), value: state.alpha)
+            .animation(.spring(response: 0.38, dampingFraction: 0.85, blendDuration: 0), value: overlayManager.velocityScale)
+            .opacity(finalOpacity)
+            .animation(dimAnimation, value: finalOpacity)
     }
 
     @ViewBuilder
@@ -135,18 +91,17 @@ struct CameraPreviewView: View {
 
     private var clipShape: AnyShape {
         switch settings.cameraShape {
-        case .circle:         return AnyShape(Circle())
-        case .roundedSquare:  return AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        case .horizontal:     return AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        case .vertical:       return AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        case .circle:        return AnyShape(Circle())
+        case .roundedSquare: return AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        case .horizontal:    return AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        case .vertical:      return AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
     }
 
     @ViewBuilder
     private var border: some View {
         if settings.borderStyle != .none {
-            clipShape
-                .stroke(Color.white.opacity(0.6), style: strokeStyle)
+            clipShape.stroke(Color.white.opacity(0.6), style: strokeStyle)
         }
     }
 
@@ -156,8 +111,6 @@ struct CameraPreviewView: View {
         default:      return StrokeStyle(lineWidth: settings.borderWidth)
         }
     }
-
-    private var freeDragMode: Bool { settings.positioningMode == .freeDrag }
 
     private var drag: some Gesture {
         DragGesture()
@@ -172,7 +125,7 @@ struct CameraPreviewView: View {
             }
     }
 
-    private var springOrNil: Animation? {
+    private var positionSpring: Animation? {
         freeDragMode ? nil : .spring(response: 0.42, dampingFraction: 0.88, blendDuration: 0)
     }
 
@@ -233,7 +186,6 @@ final class CameraPreviewNSView: NSView {
 
 struct AnyShape: Shape, @unchecked Sendable {
     private let path: @Sendable (CGRect) -> Path
-
     init<S: Shape & Sendable>(_ shape: S) { path = { shape.path(in: $0) } }
     func path(in rect: CGRect) -> Path { path(rect) }
 }

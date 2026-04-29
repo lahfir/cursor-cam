@@ -5,15 +5,16 @@ struct BehaviorSection: View {
     @ObservedObject var permissionsManager: PermissionsManager
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Studio.rowGap) {
-            Studio.sectionLabel("BEHAVIOR")
-            velocityRow
-            edgeAwareRow
-            idleDimRow
-            if settings.idleDimEnabled { idleSliders }
-            clickFeedbackRow
+        StudioCard(title: "BEHAVIOR") {
+            VStack(alignment: .leading, spacing: Studio.rowGap) {
+                velocityRow
+                edgeAwareRow
+                idleDimRow
+                if settings.idleDimEnabled { idleSliders }
+                clickFeedbackRow
+            }
+            .animation(.spring(response: 0.32, dampingFraction: 0.85), value: settings.idleDimEnabled)
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.85), value: settings.idleDimEnabled)
     }
 
     private var velocityRow: some View {
