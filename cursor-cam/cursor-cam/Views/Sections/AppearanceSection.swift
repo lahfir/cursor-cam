@@ -10,7 +10,10 @@ struct AppearanceSection: View {
             sizeAndMirror
             opacityRow
             shadowRow
+            borderRow
+            if settings.borderStyle != .none { borderWidthRow }
         }
+        .animation(.spring(response: 0.28, dampingFraction: 0.85), value: settings.borderStyle)
     }
 
     private var shapeRow: some View {
@@ -78,5 +81,33 @@ struct AppearanceSection: View {
             }
             .animation(.spring(response: 0.28, dampingFraction: 0.85), value: settings.shadowEnabled)
         }
+    }
+
+    private var borderRow: some View {
+        StudioStack(title: "Border") {
+            CamSegmented(
+                selection: $settings.borderStyle,
+                options: [
+                    (BorderStyle.none, "None"),
+                    (BorderStyle.solid, "Solid"),
+                    (BorderStyle.dashed, "Dashed")
+                ]
+            )
+        }
+    }
+
+    private var borderWidthRow: some View {
+        StudioStack(title: "Width") {
+            CamSlider(
+                value: Binding(
+                    get: { Double(settings.borderWidth) },
+                    set: { settings.borderWidth = CGFloat($0) }
+                ),
+                range: 1...6,
+                step: 1,
+                format: { "\(Int($0))px" }
+            )
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 }
