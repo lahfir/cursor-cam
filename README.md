@@ -1,5 +1,7 @@
 # Cursor-Cam
 
+![Cursor-Cam in action](assets/Tutorial.gif)
+
 A tiny floating camera overlay for macOS that follows your cursor. Any screen recorder captures it natively — no plugins, no virtual cameras, no setup.
 
 Record with Loom, OBS, Screen Studio, QuickTime, or anything else. The cam is just a borderless window that sits above all your apps and follows your mouse.
@@ -21,6 +23,8 @@ Presenters have three bad options: recorder-specific cam bubbles locked to one t
 - Customizable border: none, solid, or dashed at 5 different widths
 
 Everything persists across launches. Click the camera icon in your menu bar to access all settings.
+
+![Settings panel](assets/Panel.jpeg)
 
 ## Requirements
 
