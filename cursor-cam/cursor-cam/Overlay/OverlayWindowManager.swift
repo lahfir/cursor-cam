@@ -15,16 +15,14 @@ final class OverlayWindowManager: ObservableObject {
     private var cursorTrackingTimer: Timer?
     private var isVisible = false
     private var showIntent = false
-
     private var activeScreen: NSScreen?
     private var isHandingOff = false
 
     private let settings: SettingsStore
     private let cameraManager: CameraManager
     private let behaviorController: CamBehaviorController
+    private let positionResolver: CamPositionResolver
 
-    private static let camGap: CGFloat = 8
-    private static let cornerMargin: CGFloat = 20
     private static let tickInterval: TimeInterval = 1.0 / 60.0
 
     @Published private(set) var camState: CamState = CamState()
@@ -35,6 +33,7 @@ final class OverlayWindowManager: ObservableObject {
         self.settings = settings
         self.cameraManager = cameraManager
         self.behaviorController = CamBehaviorController(settings: settings)
+        self.positionResolver = CamPositionResolver(settings: settings)
         observeScreenChanges()
     }
 
@@ -55,7 +54,7 @@ final class OverlayWindowManager: ObservableObject {
         moveWindow(to: screen)
         activeScreen = screen
 
-        camState = CamState(position: computePosition(for: screen), alpha: 1)
+        camState = CamState(position: positionResolver.position(for: settings.positioningMode, screen: screen), alpha: 1)
         window.alphaValue = 0
         window.ignoresMouseEvents = settings.positioningMode != .freeDrag
         window.orderFrontRegardless()
@@ -93,96 +92,19 @@ final class OverlayWindowManager: ObservableObject {
     }
 
     func updateCamVisuals() {
-        guard isVisible else { return }
-        if let screen = activeScreen {
-            camState.position = computePosition(for: screen)
-        }
+        guard isVisible, let screen = activeScreen else { return }
+        camState.position = positionResolver.position(for: settings.positioningMode, screen: screen)
     }
 
     func onModeChanged() {
         guard isVisible else { return }
         overlay?.ignoresMouseEvents = settings.positioningMode != .freeDrag
-        if settings.positioningMode == .freeDrag && settings.freeDragPosition == nil {
-            if let screen = activeScreen {
-                settings.freeDragPosition = camPosition(for: screen)
-            }
-        }
     }
 
     func onFreeDragMoved(to position: CGPoint, screen: NSScreen) {
         guard settings.positioningMode == .freeDrag else { return }
         settings.freeDragPosition = position
         camState.position = position
-    }
-
-    func camPosition(for screen: NSScreen) -> CGPoint {
-        let mouse = NSEvent.mouseLocation
-        let base = convertToSwiftUICoordinates(mouse, screen: screen)
-        let (width, height) = settings.cameraShape.dimensions(for: settings.cameraSize)
-        let halfW = width / 2
-        let halfH = height / 2
-        let gap = Self.camGap
-
-        guard settings.edgeAwareOffsetEnabled else {
-            return manualOffsetPosition(base: base, halfW: halfW, halfH: halfH, gap: gap)
-        }
-        let (dx, dy) = edgeAwareOffsetSign(mouse: mouse, screen: screen)
-        if dx == 0 && dy == 0 {
-            return manualOffsetPosition(base: base, halfW: halfW, halfH: halfH, gap: gap)
-        }
-        return CGPoint(
-            x: base.x + dx * (halfW + gap),
-            y: base.y + dy * (halfH + gap)
-        )
-    }
-
-    private func edgeAwareOffsetSign(mouse: CGPoint, screen: NSScreen) -> (CGFloat, CGFloat) {
-        let frame = screen.frame
-        let edgeBandX = frame.width * 0.22
-        let edgeBandY = frame.height * 0.22
-
-        let relX = mouse.x - frame.minX
-        let relY = mouse.y - frame.minY
-
-        let isLeft = relX < edgeBandX
-        let isRight = relX > frame.width - edgeBandX
-        let isTopCocoa = relY > frame.height - edgeBandY
-        let isBottomCocoa = relY < edgeBandY
-
-        var dy: CGFloat = 0
-        if isTopCocoa { dy = +1 }
-        else if isBottomCocoa { dy = -1 }
-
-        var dx: CGFloat = 0
-        if isLeft { dx = +1 }
-        else if isRight { dx = -1 }
-
-        return (dx, dy)
-    }
-
-    private func manualOffsetPosition(base: CGPoint, halfW: CGFloat, halfH: CGFloat, gap: CGFloat) -> CGPoint {
-        switch settings.cursorPosition {
-        case .center:      return base
-        case .bottomRight: return CGPoint(x: base.x + halfW + gap, y: base.y + halfH + gap)
-        case .bottomLeft:  return CGPoint(x: base.x - halfW - gap, y: base.y + halfH + gap)
-        case .topLeft:     return CGPoint(x: base.x - halfW - gap, y: base.y - halfH - gap)
-        case .topRight:    return CGPoint(x: base.x + halfW + gap, y: base.y - halfH - gap)
-        }
-    }
-
-    func cornerPosition(for corner: Corner, screen: NSScreen) -> CGPoint {
-        let margin = Self.cornerMargin
-        let (width, height) = settings.cameraShape.dimensions(for: settings.cameraSize)
-        let halfW = width / 2
-        let halfH = height / 2
-        let frame = screen.frame
-
-        return switch corner {
-        case .topLeft:     CGPoint(x: margin + halfW, y: margin + halfH)
-        case .topRight:    CGPoint(x: frame.width - margin - halfW, y: margin + halfH)
-        case .bottomLeft:  CGPoint(x: margin + halfW, y: frame.height - margin - halfH)
-        case .bottomRight: CGPoint(x: frame.width - margin - halfW, y: frame.height - margin - halfH)
-        }
     }
 
     func screenContainingCursor() -> NSScreen? {
@@ -245,7 +167,7 @@ final class OverlayWindowManager: ObservableObject {
             return
         }
 
-        camState.position = computePosition(for: screen)
+        camState.position = positionResolver.position(for: settings.positioningMode, screen: screen)
         camState.alpha = 1
     }
 
@@ -272,7 +194,7 @@ final class OverlayWindowManager: ObservableObject {
             self.activeScreen = screen
             withTransaction(Transaction(animation: nil)) {
                 self.camState = CamState(
-                    position: self.computePosition(for: screen),
+                    position: self.positionResolver.position(for: self.settings.positioningMode, screen: screen),
                     alpha: 1
                 )
             }
@@ -284,24 +206,6 @@ final class OverlayWindowManager: ObservableObject {
                 self?.isHandingOff = false
             })
         })
-    }
-
-    private func computePosition(for screen: NSScreen) -> CGPoint {
-        switch settings.positioningMode {
-        case .followCursor: return camPosition(for: screen)
-        case .pinToCorner:  return cornerPosition(for: settings.pinnedCorner, screen: screen)
-        case .freeDrag:
-            if let pos = settings.freeDragPosition { return pos }
-            let snapshot = cornerPosition(for: settings.pinnedCorner, screen: screen)
-            settings.freeDragPosition = snapshot
-            return snapshot
-        }
-    }
-
-    private func convertToSwiftUICoordinates(_ point: CGPoint, screen: NSScreen) -> CGPoint {
-        let x = point.x - screen.frame.origin.x
-        let y = (screen.frame.origin.y + screen.frame.height) - point.y
-        return CGPoint(x: x, y: y)
     }
 
     private func observeScreenChanges() {
