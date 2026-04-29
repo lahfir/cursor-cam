@@ -17,7 +17,6 @@ final class HotkeyMonitor {
 
     func start() {
         guard eventTap == nil else { return }
-
         guard PermissionsManager.hasAccessibilityPermission() else { return }
 
         let eventMask = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
@@ -27,9 +26,7 @@ final class HotkeyMonitor {
             | CGEventMask(1 << CGEventType.rightMouseDown.rawValue)
 
         let callback: CGEventTapCallBack = { _, eventType, event, userInfo in
-            guard let userInfo else {
-                return Unmanaged.passUnretained(event)
-            }
+            guard let userInfo else { return Unmanaged.passUnretained(event) }
             let monitor = Unmanaged<HotkeyMonitor>.fromOpaque(userInfo).takeUnretainedValue()
             return monitor.handleEvent(type: eventType, event: event)
         }
@@ -106,7 +103,6 @@ final class HotkeyMonitor {
             && flags.contains(.maskControl)
             && flags.contains(.maskAlternate)
 
-        // Superset check: if any other modifier is also pressed, ignore
         let supersetModifiers: CGEventFlags = [.maskShift, .maskCommand, .maskSecondaryFn]
         let hasSupersetModifiers = !flags.intersection(supersetModifiers).isEmpty
 

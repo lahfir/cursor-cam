@@ -63,9 +63,16 @@ final class OverlayWindowManager: ObservableObject {
         activeScreen = screen
 
         camState = CamState(position: computePosition(for: screen), alpha: 1)
-        window.alphaValue = 1
+        window.alphaValue = 0
         window.ignoresMouseEvents = settings.positioningMode != .freeDrag
         window.orderFrontRegardless()
+
+        // Fade in to match fade-out feel on toggle
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.35
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            window.animator().alphaValue = 1
+        }
 
         isVisible = true
         startPositioningLoop()
@@ -126,12 +133,52 @@ final class OverlayWindowManager: ObservableObject {
         let halfH = height / 2
         let gap = Self.camGap
 
-        return switch settings.cursorPosition {
-        case .center:      base
-        case .bottomRight: CGPoint(x: base.x + halfW + gap, y: base.y + halfH + gap)
-        case .bottomLeft:  CGPoint(x: base.x - halfW - gap, y: base.y + halfH + gap)
-        case .topLeft:     CGPoint(x: base.x - halfW - gap, y: base.y - halfH - gap)
-        case .topRight:    CGPoint(x: base.x + halfW + gap, y: base.y - halfH - gap)
+        // Auto edge-aware offset: cursor near edge → cam to opposite side.
+        // Cursor in dead-center band → fall back to user's offset preference.
+        let (dx, dy) = edgeAwareOffsetSign(mouse: mouse, screen: screen)
+        if dx == 0 && dy == 0 {
+            return manualOffsetPosition(base: base, halfW: halfW, halfH: halfH, gap: gap)
+        }
+        return CGPoint(
+            x: base.x + dx * (halfW + gap),
+            y: base.y + dy * (halfH + gap)
+        )
+    }
+
+    /// Returns offset signs in SwiftUI/flipped coordinates (y+ = down).
+    /// Cursor at top → cam below (+y). Cursor at right → cam left (-x), etc.
+    private func edgeAwareOffsetSign(mouse: CGPoint, screen: NSScreen) -> (CGFloat, CGFloat) {
+        let frame = screen.frame
+        let edgeBandX = frame.width * 0.22
+        let edgeBandY = frame.height * 0.22
+
+        let relX = mouse.x - frame.minX
+        let relY = mouse.y - frame.minY  // Cocoa: 0 = bottom
+
+        let isLeft = relX < edgeBandX
+        let isRight = relX > frame.width - edgeBandX
+        let isTopCocoa = relY > frame.height - edgeBandY
+        let isBottomCocoa = relY < edgeBandY
+
+        // SwiftUI y+ goes down. Cursor near top of screen (Cocoa high y) → cam below cursor (SwiftUI +y).
+        var dy: CGFloat = 0
+        if isTopCocoa { dy = +1 }
+        else if isBottomCocoa { dy = -1 }
+
+        var dx: CGFloat = 0
+        if isLeft { dx = +1 }
+        else if isRight { dx = -1 }
+
+        return (dx, dy)
+    }
+
+    private func manualOffsetPosition(base: CGPoint, halfW: CGFloat, halfH: CGFloat, gap: CGFloat) -> CGPoint {
+        switch settings.cursorPosition {
+        case .center:      return base
+        case .bottomRight: return CGPoint(x: base.x + halfW + gap, y: base.y + halfH + gap)
+        case .bottomLeft:  return CGPoint(x: base.x - halfW - gap, y: base.y + halfH + gap)
+        case .topLeft:     return CGPoint(x: base.x - halfW - gap, y: base.y - halfH - gap)
+        case .topRight:    return CGPoint(x: base.x + halfW + gap, y: base.y - halfH - gap)
         }
     }
 

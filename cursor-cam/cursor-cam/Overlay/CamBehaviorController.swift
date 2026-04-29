@@ -14,9 +14,9 @@ final class CamBehaviorController: ObservableObject {
     // MARK: - Velocity Tracking
     private var cursorSampleBuffer: [(point: CGPoint, time: Date)] = []
     private static let velocitySampleCount = 6
-    private static let velocityMin: CGFloat = 250
-    private static let velocityMax: CGFloat = 1600
-    private static let maxScaleMultiplier: CGFloat = 1.8
+    private static let velocityMin: CGFloat = 300
+    private static let velocityMax: CGFloat = 1400
+    private static let maxScaleMultiplier: CGFloat = 1.22
 
     // MARK: - Idle Dimming
     private var lastCursorMoveTime: Date = .distantPast
