@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// Velocity scaling, idle auto-dim, and click feedback toggles + sliders.
-/// Click feedback row degrades gracefully when Accessibility permission is
-/// missing — toggle disables and subtitle explains the requirement.
 struct BehaviorSection: View {
     @ObservedObject var settings: SettingsStore
     @ObservedObject var permissionsManager: PermissionsManager

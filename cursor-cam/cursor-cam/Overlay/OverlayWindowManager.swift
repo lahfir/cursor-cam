@@ -3,17 +3,11 @@ import AVFoundation
 import Combine
 import SwiftUI
 
-/// State of the cam within the active screen's local coordinate space.
 struct CamState: Equatable {
     var position: CGPoint = .zero
     var alpha: CGFloat = 0
 }
 
-/// Owns the single floating cam window and drives the 60 fps positioning
-/// tick. The window is repositioned across screens by adjusting its `frame`
-/// to the screen that currently contains the cursor — there is exactly one
-/// `AVCaptureVideoPreviewLayer` instance, which avoids the per-screen layer
-/// conflict that broke the previous multi-window approach.
 @MainActor
 final class OverlayWindowManager: ObservableObject {
     private var overlay: OverlayWindow?
@@ -142,8 +136,6 @@ final class OverlayWindowManager: ObservableObject {
         )
     }
 
-    /// Returns offset signs in SwiftUI/flipped coordinates (y+ = down).
-    /// Cursor at top → cam below (+y). Cursor at right → cam left (-x), etc.
     private func edgeAwareOffsetSign(mouse: CGPoint, screen: NSScreen) -> (CGFloat, CGFloat) {
         let frame = screen.frame
         let edgeBandX = frame.width * 0.22
@@ -266,8 +258,6 @@ final class OverlayWindowManager: ObservableObject {
         }
     }
 
-    /// Subtle screen handoff: fade out, reposition, fade back in.
-    /// Avoids a jarring teleport when cursor crosses displays.
     private func handoffToScreen(_ screen: NSScreen) {
         guard let window = overlay else { return }
         isHandingOff = true

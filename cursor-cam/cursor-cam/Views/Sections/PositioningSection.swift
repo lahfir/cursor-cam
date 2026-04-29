@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Mode + conditional corner/offset pickers. Switches between Pin and Follow
-/// reveal a contextual second row with smooth opacity/move transitions.
 struct PositioningSection: View {
     @ObservedObject var settings: SettingsStore
 

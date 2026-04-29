@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Custom on/off pill toggle. Replaces native SwiftUI `Toggle(.switch)` so
-/// it matches the studio aesthetic and supports a focus ring for keyboard nav.
 struct CamToggle: View {
     @Binding var isOn: Bool
 
@@ -32,8 +30,6 @@ struct CamToggle: View {
     }
 }
 
-/// Larger marquee version of `CamToggle` for the panel header power switch.
-/// Pairs the pill with an "ON / OFF" monospaced glyph for legibility at a glance.
 struct PowerSwitch: View {
     @Binding var isOn: Bool
 

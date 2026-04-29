@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// Studio-console settings panel. Composes the header, four feature sections,
-/// and the footer into a single scrollable surface. All visual decisions live
-/// in `Studio` and the small atomic views under `Views/Studio/`.
 struct SettingsPanelView: View {
     @ObservedObject var settings: SettingsStore
     @ObservedObject var cameraManager: CameraManager
@@ -56,8 +53,6 @@ struct SettingsPanelView: View {
         )
     }
 
-    /// Subtle vertical gradient + accent radial glow when cam is live.
-    /// Renders behind the visual-effect view installed by `SettingsPopoverManager`.
     private var panelBackground: some View {
         ZStack {
             LinearGradient(

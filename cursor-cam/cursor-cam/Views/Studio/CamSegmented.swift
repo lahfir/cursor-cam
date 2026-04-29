@@ -1,9 +1,5 @@
 import SwiftUI
 
-/// Pill-style segmented control with spring-animated selection indicator.
-/// Custom-built so the cam panel can use accent-colored highlight, monospaced
-/// labels, and matched-geometry transitions — not available with native macOS
-/// segmented `Picker`.
 struct CamSegmented<T: Hashable>: View {
     @Binding var selection: T
     let options: [(T, String)]

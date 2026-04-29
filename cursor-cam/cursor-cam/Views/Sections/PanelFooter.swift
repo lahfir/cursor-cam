@@ -1,7 +1,6 @@
 import SwiftUI
 import AppKit
 
-/// Hotkey hint chips on the left, ghost Quit button on the right.
 struct PanelFooter: View {
     var body: some View {
         HStack(spacing: 10) {

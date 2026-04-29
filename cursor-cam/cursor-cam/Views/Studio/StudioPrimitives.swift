@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Two-line label + trailing control row.
-/// Used for behavior toggles where the label needs a hint subtitle.
 struct CamRow<Trailing: View>: View {
     let title: String
     let subtitle: String?
@@ -28,7 +26,6 @@ struct CamRow<Trailing: View>: View {
     }
 }
 
-/// Compact monospaced glyph for keyboard shortcut hints.
 struct KeyChip: View {
     let key: String
 
@@ -51,8 +48,6 @@ struct KeyChip: View {
     }
 }
 
-/// Mirror toggle wrapped in a chip background so it visually matches sibling
-/// segmented controls in `AppearanceSection`.
 struct CamToggleChip: View {
     @Binding var isOn: Bool
 

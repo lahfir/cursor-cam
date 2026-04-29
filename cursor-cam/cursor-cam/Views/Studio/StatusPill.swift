@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// LIVE / STANDBY badge with a subtle pulse on the live dot.
-/// Lives in the panel header to make state legible at a glance.
 struct StatusPill: View {
     let isOn: Bool
 

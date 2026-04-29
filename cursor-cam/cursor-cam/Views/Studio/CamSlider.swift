@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// Slider with an inline monospaced value chip on the right.
-/// Uses native SwiftUI `Slider` for accessibility/keyboard support and
-/// adds a value pill so the current setting is always legible.
 struct CamSlider: View {
     @Binding var value: Double
     let range: ClosedRange<Double>

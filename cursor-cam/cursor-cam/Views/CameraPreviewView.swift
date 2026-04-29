@@ -176,9 +176,6 @@ struct CameraPreviewView: View {
         freeDragMode ? nil : .spring(response: 0.42, dampingFraction: 0.88, blendDuration: 0)
     }
 
-    /// Idle dim fades slower (0.55s) than restore (0.20s) so the cam never
-    /// feels sluggish coming back, but the fade-out reads as deliberate.
-    /// Reduce-Motion users get instant transitions to honor the system flag.
     private var dimAnimation: Animation? {
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion { return nil }
         let dimming = overlayManager.idleDimMultiplier < 1.0

@@ -1,10 +1,5 @@
 import AppKit
 
-/// Borderless transparent window that hosts the floating cam overlay. A single
-/// instance is reused across screens — `OverlayWindowManager` repositions it
-/// to whichever screen currently contains the cursor. Single-window design
-/// avoids the `AVCaptureVideoPreviewLayer` conflict (a preview layer cannot
-/// live in two CALayer hierarchies at once).
 final class OverlayWindow: NSWindow {
     init() {
         super.init(

@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Top of the settings panel: live status pill + product mark + power switch
-/// on the left, hero live preview on the right.
 struct PanelHeader: View {
     @ObservedObject var settings: SettingsStore
     @ObservedObject var cameraManager: CameraManager

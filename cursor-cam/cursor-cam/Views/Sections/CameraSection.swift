@@ -1,9 +1,6 @@
 import AVFoundation
 import SwiftUI
 
-/// Camera picker. Lists every discovered `AVCaptureDevice` with a checkmark on
-/// the active selection. Falls back to a friendly empty state when zero
-/// cameras are available.
 struct CameraSection: View {
     @ObservedObject var cameraManager: CameraManager
 

@@ -2,11 +2,6 @@ import AppKit
 import SwiftUI
 import Combine
 
-/// Manages the settings panel as a non-activating floating panel anchored to
-/// the menu bar status item. Uses `NSPanel` with `.nonactivatingPanel` so the
-/// user's current app retains key focus while the panel still supports
-/// keyboard navigation. The panel is forced to the dark vibrant appearance
-/// to keep the studio aesthetic consistent across light/dark modes.
 @MainActor
 final class SettingsPopoverManager: NSObject {
     private var panel: NSPanel?
@@ -108,9 +103,6 @@ final class SettingsPopoverManager: NSObject {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
     }
 
-    /// Wraps the SwiftUI hosting view inside an `NSVisualEffectView` so the
-    /// panel reads as a frosted-glass surface that adapts to the desktop
-    /// behind it. A rounded corner mask ties it together with `hasShadow`.
     private func makeContainer(hosting: NSHostingView<SettingsPanelView>, size: NSSize) -> NSView {
         let blur = NSVisualEffectView()
         blur.material = .hudWindow
@@ -189,10 +181,6 @@ final class SettingsPopoverManager: NSObject {
     }
 }
 
-/// `NSPanel` subclass that can become key while still using the
-/// `.nonactivatingPanel` style mask. This enables Tab / Space / Enter / Escape
-/// keyboard navigation inside the panel without ever stealing focus from the
-/// user's frontmost app.
 private final class KeyablePanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }

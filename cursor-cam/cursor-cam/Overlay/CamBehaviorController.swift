@@ -2,8 +2,6 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// Encapsulates dynamic cam behaviors: velocity-based scaling and idle auto-dim.
-/// Owned by OverlayWindowManager and updated on every positioning tick.
 @MainActor
 final class CamBehaviorController: ObservableObject {
     @Published private(set) var velocityScale: CGFloat = 1.0

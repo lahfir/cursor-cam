@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// Design tokens for the Cursor-Cam settings panel.
-/// Centralizes typography, spacing, and color so the panel reads
-/// like a single coherent surface.
 enum Studio {
     static let panelWidth: CGFloat = 380
     static let maxPanelHeight: CGFloat = 620
@@ -32,14 +29,12 @@ enum Studio {
     }
 }
 
-/// Hairline divider that sits between sections.
 struct StudioHairline: View {
     var body: some View {
         Rectangle().fill(Studio.hairline).frame(height: 0.5)
     }
 }
 
-/// Stacked label-above-control layout used by every form row.
 struct StudioStack<Content: View>: View {
     let title: String
     @ViewBuilder let content: () -> Content

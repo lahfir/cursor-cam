@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Shape, size, mirror, opacity, and shadow controls.
-/// Visual tone for the cam — the most-frequently-changed bucket.
 struct AppearanceSection: View {
     @ObservedObject var settings: SettingsStore
 

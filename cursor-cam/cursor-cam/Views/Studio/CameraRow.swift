@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// A single selectable row in the camera picker. Hover and selected states are
-/// rendered inline (not via `List`) so the row blends with the studio aesthetic.
 struct CameraRow: View {
     let name: String
     let isSelected: Bool
@@ -66,7 +64,6 @@ struct CameraRow: View {
     }
 }
 
-/// Empty state for the camera picker when no cameras are available.
 struct EmptyCameraRow: View {
     var body: some View {
         HStack(spacing: 10) {

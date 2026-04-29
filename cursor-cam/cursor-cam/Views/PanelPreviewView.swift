@@ -1,14 +1,6 @@
 import AVFoundation
 import SwiftUI
 
-/// Live camera preview thumbnail rendered as the hero element of the settings
-/// panel header. Creates a second `AVCaptureVideoPreviewLayer` from the same
-/// session so the panel mirrors the running cam in real time.
-///
-/// Visual cues:
-/// - Accent-colored outer glow + frame stroke when cam is live
-/// - Tiny red dot in the top-right corner reinforces the "broadcasting" feel
-/// - Aspect ratio + corner radius mirror the user's selected `CameraShape`
 struct PanelPreviewView: View {
     @ObservedObject var cameraManager: CameraManager
     @ObservedObject var settings: SettingsStore
