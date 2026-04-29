@@ -11,6 +11,7 @@ struct BehaviorSection: View {
         VStack(alignment: .leading, spacing: Studio.rowGap) {
             Studio.sectionLabel("BEHAVIOR")
             velocityRow
+            edgeAwareRow
             idleDimRow
             if settings.idleDimEnabled { idleSliders }
             clickFeedbackRow
@@ -24,6 +25,15 @@ struct BehaviorSection: View {
             subtitle: "Pulse cam on quick cursor moves"
         ) {
             CamToggle(isOn: $settings.velocityScalingEnabled)
+        }
+    }
+
+    private var edgeAwareRow: some View {
+        CamRow(
+            title: "Edge-aware offset",
+            subtitle: "Cam moves to opposite side at edges"
+        ) {
+            CamToggle(isOn: $settings.edgeAwareOffsetEnabled)
         }
     }
 

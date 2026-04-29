@@ -46,7 +46,7 @@ struct CameraPreviewView: View {
                               y: state.position.y + dragOffset.height)
                     .animation(springOrNil, value: state.position)
                     .animation(.easeInOut(duration: 0.25), value: state.alpha)
-                    .animation(.spring(response: 0.2, dampingFraction: 0.6, blendDuration: 0), value: overlayManager.velocityScale)
+                    .animation(.spring(response: 0.38, dampingFraction: 0.85, blendDuration: 0), value: overlayManager.velocityScale)
                     .opacity(finalOpacity)
                     .animation(dimAnimation, value: finalOpacity)
                     .gesture(freeDragMode ? drag : nil)
@@ -187,7 +187,9 @@ struct CameraPreviewView: View {
     // MARK: - Animation
 
     private var springOrNil: Animation? {
-        freeDragMode ? nil : .spring(response: 0.2, dampingFraction: 0.6, blendDuration: 0)
+        // Subtle, micro-glide spring — high damping, longer response so the
+        // cam never reads as "snapping" between positions.
+        freeDragMode ? nil : .spring(response: 0.42, dampingFraction: 0.88, blendDuration: 0)
     }
 
     /// Idle dim fades slower (0.55s) than restore (0.20s) so the cam never

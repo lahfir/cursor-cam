@@ -23,6 +23,7 @@ final class OverlayWindowManager: ObservableObject {
     private var showIntent = false
 
     private var activeScreen: NSScreen?
+    private var isHandingOff = false
 
     private let settings: SettingsStore
     private let cameraManager: CameraManager
@@ -133,8 +134,9 @@ final class OverlayWindowManager: ObservableObject {
         let halfH = height / 2
         let gap = Self.camGap
 
-        // Auto edge-aware offset: cursor near edge → cam to opposite side.
-        // Cursor in dead-center band → fall back to user's offset preference.
+        guard settings.edgeAwareOffsetEnabled else {
+            return manualOffsetPosition(base: base, halfW: halfW, halfH: halfH, gap: gap)
+        }
         let (dx, dy) = edgeAwareOffsetSign(mouse: mouse, screen: screen)
         if dx == 0 && dy == 0 {
             return manualOffsetPosition(base: base, halfW: halfW, halfH: halfH, gap: gap)
@@ -246,21 +248,19 @@ final class OverlayWindowManager: ObservableObject {
     }
 
     private func tick() {
-        guard isVisible, showIntent else { return }
+        guard isVisible, showIntent, !isHandingOff else { return }
 
         let mouse = NSEvent.mouseLocation
         behaviorController.tick(mouseLocation: mouse)
         velocityScale = behaviorController.velocityScale
         idleDimMultiplier = behaviorController.idleDimMultiplier
 
-        // Identify active screen — cursor's screen for follow / pin modes,
-        // freeDragPosition's screen for free drag mode.
         let target = targetScreen(for: mouse) ?? activeScreen
         guard let screen = target else { return }
 
-        if screen != activeScreen {
-            moveWindow(to: screen)
-            activeScreen = screen
+        if screen !== activeScreen {
+            handoffToScreen(screen)
+            return
         }
 
         camState.position = computePosition(for: screen)
@@ -272,11 +272,37 @@ final class OverlayWindowManager: ObservableObject {
         case .followCursor, .pinToCorner:
             return NSScreen.screens.first { $0.frame.contains(mouse) }
         case .freeDrag:
-            if let pos = settings.freeDragPosition {
-                return NSScreen.screens.first { $0.frame.contains(pos) }
-            }
-            return NSScreen.screens.first { $0.frame.contains(mouse) }
+            // Drag mode locks to the screen the cam was last placed on.
+            return activeScreen ?? NSScreen.screens.first { $0.frame.contains(mouse) }
         }
+    }
+
+    /// Subtle screen handoff: fade out, reposition, fade back in.
+    /// Avoids a jarring teleport when cursor crosses displays.
+    private func handoffToScreen(_ screen: NSScreen) {
+        guard let window = overlay else { return }
+        isHandingOff = true
+
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            window.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            guard let self else { return }
+            window.setFrame(screen.frame, display: true)
+            self.activeScreen = screen
+            self.camState = CamState(
+                position: self.computePosition(for: screen),
+                alpha: 1
+            )
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.22
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                window.animator().alphaValue = 1
+            }, completionHandler: { [weak self] in
+                self?.isHandingOff = false
+            })
+        })
     }
 
     private func computePosition(for screen: NSScreen) -> CGPoint {

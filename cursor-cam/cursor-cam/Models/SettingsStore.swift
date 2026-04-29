@@ -60,6 +60,9 @@ final class SettingsStore: ObservableObject {
     @Published var clickFeedbackEnabled: Bool {
         didSet { write(.clickFeedbackEnabled, clickFeedbackEnabled) }
     }
+    @Published var edgeAwareOffsetEnabled: Bool {
+        didSet { write(.edgeAwareOffsetEnabled, edgeAwareOffsetEnabled) }
+    }
     @Published var isCamOn = false
 
     private let defaults = UserDefaults.standard
@@ -83,6 +86,7 @@ final class SettingsStore: ObservableObject {
         self.idleTimeoutSeconds = defaults.object(forKey: Keys.idleTimeoutSeconds.rawValue) as? Double ?? 3.0
         self.idleDimmedOpacity = defaults.object(forKey: Keys.idleDimmedOpacity.rawValue) as? Double ?? 0.3
         self.clickFeedbackEnabled = defaults.object(forKey: Keys.clickFeedbackEnabled.rawValue) as? Bool ?? true
+        self.edgeAwareOffsetEnabled = defaults.object(forKey: Keys.edgeAwareOffsetEnabled.rawValue) as? Bool ?? false
 
         if let x = defaults.object(forKey: Keys.freeDragPositionX.rawValue) as? CGFloat,
            let y = defaults.object(forKey: Keys.freeDragPositionY.rawValue) as? CGFloat {
@@ -111,4 +115,5 @@ private enum Keys: String {
     case baseOpacity, shadowEnabled, shadowIntensity
     case velocityScalingEnabled, idleDimEnabled, idleTimeoutSeconds, idleDimmedOpacity
     case clickFeedbackEnabled
+    case edgeAwareOffsetEnabled
 }
