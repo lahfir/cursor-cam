@@ -24,6 +24,16 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertNil(store.selectedCameraUniqueID)
         XCTAssertNil(store.freeDragPosition)
         XCTAssertFalse(store.isCamOn)
+
+        // v1.5 defaults
+        XCTAssertEqual(store.baseOpacity, 1.0)
+        XCTAssertTrue(store.shadowEnabled)
+        XCTAssertEqual(store.shadowIntensity, .medium)
+        XCTAssertTrue(store.velocityScalingEnabled)
+        XCTAssertTrue(store.idleDimEnabled)
+        XCTAssertEqual(store.idleTimeoutSeconds, 3.0)
+        XCTAssertEqual(store.idleDimmedOpacity, 0.3)
+        XCTAssertTrue(store.clickFeedbackEnabled)
     }
 
     func testCursorPositionPersistsRoundTrip() {
@@ -128,11 +138,83 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertTrue(positions.contains(.bottomRight))
     }
 
+    func testBaseOpacityPersistsRoundTrip() {
+        let store = SettingsStore()
+        store.baseOpacity = 0.5
+
+        let reloaded = SettingsStore()
+        XCTAssertEqual(reloaded.baseOpacity, 0.5)
+    }
+
+    func testShadowEnabledPersistsRoundTrip() {
+        let store = SettingsStore()
+        store.shadowEnabled = false
+
+        let reloaded = SettingsStore()
+        XCTAssertFalse(reloaded.shadowEnabled)
+    }
+
+    func testShadowIntensityPersistsRoundTrip() {
+        let store = SettingsStore()
+        store.shadowIntensity = .heavy
+
+        let reloaded = SettingsStore()
+        XCTAssertEqual(reloaded.shadowIntensity, .heavy)
+    }
+
+    func testVelocityScalingEnabledPersistsRoundTrip() {
+        let store = SettingsStore()
+        store.velocityScalingEnabled = false
+
+        let reloaded = SettingsStore()
+        XCTAssertFalse(reloaded.velocityScalingEnabled)
+    }
+
+    func testIdleDimEnabledPersistsRoundTrip() {
+        let store = SettingsStore()
+        store.idleDimEnabled = false
+
+        let reloaded = SettingsStore()
+        XCTAssertFalse(reloaded.idleDimEnabled)
+    }
+
+    func testIdleTimeoutSecondsPersistsRoundTrip() {
+        let store = SettingsStore()
+        store.idleTimeoutSeconds = 7.0
+
+        let reloaded = SettingsStore()
+        XCTAssertEqual(reloaded.idleTimeoutSeconds, 7.0)
+    }
+
+    func testIdleDimmedOpacityPersistsRoundTrip() {
+        let store = SettingsStore()
+        store.idleDimmedOpacity = 0.5
+
+        let reloaded = SettingsStore()
+        XCTAssertEqual(reloaded.idleDimmedOpacity, 0.5)
+    }
+
+    func testClickFeedbackEnabledPersistsRoundTrip() {
+        let store = SettingsStore()
+        store.clickFeedbackEnabled = false
+
+        let reloaded = SettingsStore()
+        XCTAssertFalse(reloaded.clickFeedbackEnabled)
+    }
+
     func testAllBorderStylesAreCaseIterable() {
         let styles = BorderStyle.allCases
         XCTAssertEqual(styles.count, 3)
         XCTAssertTrue(styles.contains(.none))
         XCTAssertTrue(styles.contains(.solid))
         XCTAssertTrue(styles.contains(.dashed))
+    }
+
+    func testAllShadowIntensitiesAreCaseIterable() {
+        let intensities = ShadowIntensity.allCases
+        XCTAssertEqual(intensities.count, 3)
+        XCTAssertTrue(intensities.contains(.light))
+        XCTAssertTrue(intensities.contains(.medium))
+        XCTAssertTrue(intensities.contains(.heavy))
     }
 }

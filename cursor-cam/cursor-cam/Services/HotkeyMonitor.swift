@@ -1,6 +1,10 @@
 import AppKit
 import CoreGraphics
 
+extension Notification.Name {
+    static let cursorCamClickFeedback = Notification.Name("cursorCamClickFeedback")
+}
+
 final class HotkeyMonitor {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -13,17 +17,16 @@ final class HotkeyMonitor {
 
     func start() {
         guard eventTap == nil else { return }
-
         guard PermissionsManager.hasAccessibilityPermission() else { return }
 
         let eventMask = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
             | CGEventMask(1 << CGEventType.keyDown.rawValue)
             | CGEventMask(1 << CGEventType.keyUp.rawValue)
+            | CGEventMask(1 << CGEventType.leftMouseDown.rawValue)
+            | CGEventMask(1 << CGEventType.rightMouseDown.rawValue)
 
         let callback: CGEventTapCallBack = { _, eventType, event, userInfo in
-            guard let userInfo else {
-                return Unmanaged.passUnretained(event)
-            }
+            guard let userInfo else { return Unmanaged.passUnretained(event) }
             let monitor = Unmanaged<HotkeyMonitor>.fromOpaque(userInfo).takeUnretainedValue()
             return monitor.handleEvent(type: eventType, event: event)
         }
@@ -82,15 +85,23 @@ final class HotkeyMonitor {
             return Unmanaged.passUnretained(event)
         }
 
+        switch type {
+        case .leftMouseDown, .rightMouseDown:
+            NotificationCenter.default.post(name: .cursorCamClickFeedback, object: nil)
+            return Unmanaged.passUnretained(event)
+        case .keyDown, .keyUp, .flagsChanged:
+            break
+        default:
+            return Unmanaged.passUnretained(event)
+        }
+
         let flags = event.flags
         let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
 
-        // ⌃⌥C — keyCode 8 is 'c' key
         let isControlOptionC = keyCode == 8
             && flags.contains(.maskControl)
             && flags.contains(.maskAlternate)
 
-        // Superset check: if any other modifier is also pressed, ignore
         let supersetModifiers: CGEventFlags = [.maskShift, .maskCommand, .maskSecondaryFn]
         let hasSupersetModifiers = !flags.intersection(supersetModifiers).isEmpty
 

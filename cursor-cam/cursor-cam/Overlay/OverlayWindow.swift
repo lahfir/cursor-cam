@@ -1,10 +1,13 @@
 import AppKit
 
 final class OverlayWindow: NSWindow {
-    weak var assignedScreen: NSScreen?
-
-    init(screen: NSScreen) {
-        super.init(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
+    init() {
+        super.init(
+            contentRect: NSRect(x: 0, y: 0, width: 100, height: 100),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
         self.isOpaque = false
         self.backgroundColor = .clear
         self.level = .screenSaver
@@ -13,7 +16,6 @@ final class OverlayWindow: NSWindow {
         self.ignoresMouseEvents = true
         self.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         self.isReleasedWhenClosed = false
-        self.assignedScreen = screen
     }
 
     override var canBecomeKey: Bool { false }

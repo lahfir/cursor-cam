@@ -21,12 +21,13 @@ final class CursorCamAppDelegate: NSObject, NSApplicationDelegate {
             cameraManager: camera
         )
         let hotkey = HotkeyMonitor()
+        let permissions = PermissionsManager()
         let menuBar = MenuBarManager(
             settings: settings,
             cameraManager: camera,
-            overlayManager: overlay
+            overlayManager: overlay,
+            permissionsManager: permissions
         )
-        let permissions = PermissionsManager()
 
         settingsStore = settings
         cameraManager = camera
@@ -35,12 +36,11 @@ final class CursorCamAppDelegate: NSObject, NSApplicationDelegate {
         menuBarManager = menuBar
         permissionsManager = permissions
 
-        menuBar.setPermissionsManager(permissions)
-
         hotkey.setToggleHandler { [weak overlay, weak camera, weak settings] in
             guard let overlay, let camera, let settings else { return }
             if overlay.isShowing {
                 overlay.hide()
+                camera.stopSession()
                 settings.isCamOn = false
             } else {
                 settings.isCamOn = true
